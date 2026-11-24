@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lil Chef</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#ff9a60,#ffd460);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:5px;margin-top:4px;}
+.scores{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;justify-content:center;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,154,96,.18);border-radius:6px;padding:3px 12px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#ff9a60;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(255,154,96,.18);touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+.ctrl-row{display:flex;gap:8px;margin-top:8px;}
+.ctrl-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#fff;font-family:'Orbitron',monospace;font-size:.65rem;padding:8px 22px;cursor:pointer;}
+.ctrl-btn:active{background:rgba(255,255,255,.18);}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#0a0806,#050508);border:2px solid #ff9a60;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(255,154,96,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ff9a60;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#2a1000,#100800);border:1px solid #ff9a60;border-radius:8px;color:#ff9a60;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>LIL CHEF</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Time</div><div class="score-val" id="el-time">60</div></div>
+  <div class="score-box"><div class="score-label">Misses</div><div class="score-val" id="el-miss">0</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Move pan to catch ingredients</div>
+<div class="ctrl-row">
+  <button class="ctrl-btn" id="btn-left">LEFT</button>
+  <button class="ctrl-btn" id="btn-right">RIGHT</button>
+</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">TIME UP!</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Keep cooking!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W,H;
+const INGREDIENTS=[
+  {emoji:'🥕',color:'#ff8800',name:'carrot'},
+  {emoji:'🍄',color:'#cc6644',name:'mushroom'},
+  {emoji:'🍅',color:'#ff3322',name:'tomato'},
+  {emoji:'🫑',color:'#44cc44',name:'pepper'},
+  {emoji:'🥚',color:'#ffffcc',name:'egg'}
+];
+const RECIPES=[
+  ['carrot','egg','mushroom'],
+  ['tomato','pepper','egg'],
+  ['mushroom','carrot','pepper']
+];
+let pan,items,particles,recipe,caught;
+let score,misses,timeLeft,best,gameState,raf,timerInt;
+
+function resize(){
+  const a=Math.min(window.innerWidth-20,360);
+  W=a; H=Math.round(a*1.5);
+  cv.width=W; cv.height=H;
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  pan={x:W/2,y:H*0.85,w:70,h:20,vx:0};
+  items=[]; particles=[]; caught=[];
+  recipe=RECIPES[Math.floor(Math.random()*RECIPES.length)];
+  score=0; misses=0; timeLeft=60;
+  best=+(localStorage.getItem('lilchef_best')||0);
+  gameState='playing';
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    if(gameState!=='playing')return;
+    timeLeft--;
+    document.getElementById('el-time').textContent=timeLeft;
+    if(timeLeft<=0)endGame();
+  },1000);
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent=score;
+  document.getElementById('el-miss').textContent=misses;
+  document.getElementById('el-best').textContent=best;
+}
+
+function spawnParticles(x,y,col,n=8){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=Math.random()*4+1;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,col,r:Math.random()*4+1});
+  }
+}
+
+function spawnItem(){
+  const ing=INGREDIENTS[Math.floor(Math.random()*INGREDIENTS.length)];
+  items.push({x:Math.random()*(W-40)+20,y:-30,r:16,vy:2+Math.random()*2,ing});
+}
+
+const keys={};
+document.addEventListener('keydown',e=>{keys[e.code]=true;});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+function setupCtrl(id,code){
+  const b=document.getElementById(id);
+  b.addEventListener('touchstart',e=>{e.preventDefault();keys[code]=true;},{passive:false});
+  b.addEventListener('touchend',e=>{e.preventDefault();keys[code]=false;},{passive:false});
+  b.addEventListener('mousedown',()=>keys[code]=true);
+  b.addEventListener('mouseup',()=>keys[code]=false);
+}
+setupCtrl('btn-left','ArrowLeft');
+setupCtrl('btn-right','ArrowRight');
+
+let touchX=null;
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0],r=cv.getBoundingClientRect();
+  pan.x=t.clientX-r.left;
+  pan.x=Math.max(pan.w/2,Math.min(W-pan.w/2,pan.x));
+},{passive:false});
+cv.addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;},{passive:true});
+
+function endGame(){
+  gameState='over';
+  clearInterval(timerInt);
+  if(score>best){best=score;localStorage.setItem('lilchef_best',best);updateHUD();}
+  setTimeout(()=>{
+    document.getElementById('ov-title').textContent='TIME UP!';
+    document.getElementById('ov-score').textContent=score;
+    document.getElementById('ov-msg').textContent=score>80?'Master chef!':score>30?'Nice cooking!':'Keep cooking!';
+    document.getElementById('overlay').classList.add('show');
+  },400);
+}
+
+let spawnTimer=0;
+function loop(){
+  raf=requestAnimationFrame(loop);
+  if(gameState==='playing'){
+    spawnTimer++;
+    if(spawnTimer%40===0)spawnItem();
+    // Pan movement
+    const spd=5;
+    if(keys['ArrowLeft']||keys['KeyA'])pan.x=Math.max(pan.w/2,pan.x-spd);
+    if(keys['ArrowRight']||keys['KeyD'])pan.x=Math.min(W-pan.w/2,pan.x+spd);
+    // Items fall
+    items.forEach(it=>{it.y+=it.vy;it.vy+=0.04;});
+    // Catch check
+    items.forEach((it,i)=>{
+      if(it.y+it.r>=pan.y&&Math.abs(it.x-pan.x)<pan.w/2+it.r){
+        // Caught
+        const isRecipe=recipe.includes(it.ing.name);
+        const pts=isRecipe?5:1;
+        // Check combo
+        caught.push(it.ing.name);
+        if(caught.length>3)caught.shift();
+        const hasCombo=recipe.every(r=>caught.includes(r));
+        if(hasCombo){score+=5;caught=[];spawnParticles(pan.x,pan.y,'#ffd460',12);}
+        score+=pts;
+        spawnParticles(it.x,pan.y,it.ing.color,6);
+        items.splice(i,1);
+        updateHUD();
+        if(score>best){best=score;localStorage.setItem('lilchef_best',best);}
+      } else if(it.y>H+30){
+        // Missed
+        misses++;
+        document.getElementById('el-miss').textContent=misses;
+        items.splice(i,1);
+        if(misses>=5)endGame();
+      }
+    });
+  }
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.025;});
+  particles=particles.filter(p=>p.life>0);
+
+  // Draw
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  // Kitchen bg
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#0a080a');bg.addColorStop(1,'#060408');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  // Counter
+  ctx.fillStyle='rgba(255,255,255,.04)';ctx.fillRect(0,pan.y+pan.h/2,W,H-(pan.y+pan.h/2));
+  // Recipe banner
+  ctx.fillStyle='rgba(255,154,96,.12)';ctx.fillRect(0,0,W,44);
+  ctx.fillStyle='rgba(255,154,96,.7)';ctx.font=`bold ${Math.round(W*.025)}px 'Orbitron',monospace`;
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText("TODAY'S RECIPE:",8,22);
+  recipe.forEach((r,i)=>{
+    const ing=INGREDIENTS.find(x=>x.name===r);
+    ctx.font=`${Math.round(W*.045)}px serif`;
+    ctx.fillText(ing.emoji,W*0.4+i*34,22);
+  });
+
+  // Items
+  items.forEach(it=>{
+    ctx.shadowColor=it.ing.color;ctx.shadowBlur=8;
+    ctx.beginPath();ctx.arc(it.x,it.y,it.r,0,Math.PI*2);
+    ctx.fillStyle=it.ing.color+'cc';ctx.fill();
+    ctx.font=`${Math.round(it.r*1.4)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(it.ing.emoji,it.x,it.y);
+    ctx.shadowBlur=0;
+  });
+
+  // Particles
+  particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
+  ctx.globalAlpha=1;
+
+  // Pan
+  ctx.shadowColor='#ff9a60';ctx.shadowBlur=14;
+  ctx.fillStyle='#555566';
+  ctx.beginPath();ctx.ellipse(pan.x,pan.y,pan.w/2,pan.h/2,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#ff9a60';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='rgba(255,154,96,.3)';
+  ctx.beginPath();ctx.ellipse(pan.x,pan.y-2,pan.w/2-4,pan.h/2-3,0,0,Math.PI*2);ctx.fill();
+  // Handle
+  ctx.strokeStyle='#888899';ctx.lineWidth=6;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(pan.x+pan.w/2,pan.y);ctx.lineTo(pan.x+pan.w/2+22,pan.y+4);ctx.stroke();
+  ctx.shadowBlur=0;
+
+  // Miss indicators
+  for(let i=0;i<5;i++){
+    ctx.fillStyle=i<misses?'#ff4444':'rgba(255,255,255,.12)';
+    ctx.beginPath();ctx.arc(W-20-i*18,H-16,6,0,Math.PI*2);ctx.fill();
+  }
+}
+
+window.addEventListener('resize',()=>resize());
+newGame();
+</script>
+</body>
+</html>

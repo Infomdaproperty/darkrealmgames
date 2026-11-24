@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Spin Jump</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#aa44ff,#ff44aa,#ffaa44);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#aa44ff;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(170,68,255,.18);cursor:pointer;touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #aa44ff;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(170,68,255,.3);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ff44aa;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#1a0033,#0a001a);border:1px solid #aa44ff;border-radius:8px;color:#aa44ff;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>SPIN JUMP</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Tap / Space to release and jump to next platform</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Time your jump!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H;
+
+const POLE_X_FRAC = 0.3;
+const CHAR_R = 10;
+const PLATFORM_H = 12;
+const PLATFORM_W_MIN = 40;
+const PLATFORM_W_MAX = 90;
+const GRAVITY = 0.4;
+
+let char, platforms, particles, score, best, gameState, raf, orbitAngle, orbitSpeed, orbitR;
+let flying, flyVx, flyVy;
+
+function resize(){
+  const avail = Math.min(window.innerWidth - 20, 340);
+  W = avail; H = Math.round(W * 1.7);
+  cv.width = W; cv.height = H;
+}
+
+function makePlatform(y, isFirst){
+  const pw = PLATFORM_W_MIN + Math.random() * (PLATFORM_W_MAX - PLATFORM_W_MIN);
+  const minX = 10 + pw/2;
+  const maxX = W - 10 - pw/2;
+  // Keep away from pole on first
+  let px = minX + Math.random() * (maxX - minX);
+  if(isFirst) px = W * 0.68;
+  const hue = Math.random() * 360;
+  return {x: px, y, w: pw, hue};
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  score = 0;
+  best = +(localStorage.getItem('spinjump_best') || 0);
+  gameState = 'spinning';
+  orbitAngle = 0;
+  orbitSpeed = 0.055;
+  orbitR = 28;
+  flying = false;
+  flyVx = 0; flyVy = 0;
+
+  // Build initial platforms
+  platforms = [];
+  const startY = H * 0.65;
+  for(let i=0;i<6;i++){
+    platforms.push(makePlatform(startY - i * (H / 6), i === 0));
+  }
+
+  char = {
+    x: W * POLE_X_FRAC,
+    y: platforms[0].y - CHAR_R,
+    onPole: true,
+    vy: 0,
+    alive: true
+  };
+
+  particles = [];
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent = score;
+  document.getElementById('el-best').textContent = best;
+}
+
+function jump(){
+  if(!char.alive) return;
+  if(gameState === 'spinning'){
+    gameState = 'flying';
+    // Launch in direction of orbit
+    const spd = 5.5 + score * 0.1;
+    flyVx = Math.cos(orbitAngle) * spd;
+    flyVy = Math.sin(orbitAngle) * spd;
+    char.x = W * POLE_X_FRAC + Math.cos(orbitAngle) * orbitR;
+    char.y = platforms[0].y - CHAR_R + Math.sin(orbitAngle) * orbitR;
+  }
+}
+
+function spawnParticles(x, y, col, n){
+  for(let i=0;i<n;i++){
+    const ang = Math.random()*Math.PI*2, sp = Math.random()*3+1;
+    particles.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,col,r:Math.random()*3+1});
+  }
+}
+
+function loop(){
+  raf = requestAnimationFrame(loop);
+
+  if(gameState === 'spinning'){
+    orbitAngle += orbitSpeed;
+    char.x = W * POLE_X_FRAC + Math.cos(orbitAngle) * orbitR;
+    char.y = (platforms[0] ? platforms[0].y - CHAR_R : H*0.5) + Math.sin(orbitAngle) * orbitR * 0.5;
+    // Scroll platforms up
+    const scrollSpeed = 0.4 + score * 0.02;
+    platforms.forEach(p => p.y += scrollSpeed);
+    if(platforms[platforms.length-1] && platforms[platforms.length-1].y > H - 10){
+      platforms.pop();
+    }
+  }
+
+  if(gameState === 'flying'){
+    flyVy += GRAVITY;
+    char.x += flyVx;
+    char.y += flyVy;
+
+    // Scroll platforms
+    const scrollSpeed = 0.4 + score * 0.02;
+    platforms.forEach(p => p.y += scrollSpeed);
+
+    // Check landing
+    for(const p of platforms){
+      if(char.x >= p.x - p.w/2 - CHAR_R && char.x <= p.x + p.w/2 + CHAR_R){
+        if(char.y + CHAR_R >= p.y - PLATFORM_H/2 && char.y + CHAR_R <= p.y + PLATFORM_H/2 + 10 && flyVy > 0){
+          // Landed!
+          score++;
+          updateHUD();
+          spawnParticles(char.x, p.y - PLATFORM_H/2, `hsl(${p.hue},100%,65%)`, 10);
+          // Move pole to current platform x, reset
+          char.x = p.x;
+          char.y = p.y - CHAR_R - PLATFORM_H/2;
+          char.onPole = true;
+          // Shift this platform to index 0
+          platforms = platforms.filter(pl => pl !== p);
+          platforms.unshift(p);
+          // Rebuild upcoming platforms above
+          while(platforms.length < 7){
+            const topY = platforms[platforms.length-1].y;
+            platforms.push(makePlatform(topY - (H/6 + Math.random()*20 - 10), false));
+          }
+          orbitAngle = -Math.PI/2;
+          gameState = 'spinning';
+          return;
+        }
+      }
+    }
+
+    // Off screen
+    if(char.y > H + 50 || char.x < -50 || char.x > W + 50){
+      char.alive = false;
+      gameState = 'dead';
+      if(score > best){ best = score; localStorage.setItem('spinjump_best', best); updateHUD(); }
+      setTimeout(()=>{
+        document.getElementById('ov-title').textContent = 'GAME OVER';
+        document.getElementById('ov-score').textContent = score;
+        document.getElementById('ov-msg').textContent = score >= 15 ? 'Platform master!' : score >= 7 ? 'Nice jumps!' : 'Time your jump!';
+        document.getElementById('overlay').classList.add('show');
+      }, 600);
+    }
+  }
+
+  // Remove off-screen platforms at bottom
+  platforms = platforms.filter(p => p.y < H + 50);
+
+  particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.1; p.life-=0.03; });
+  particles = particles.filter(p => p.life > 0);
+
+  // Draw
+  ctx.fillStyle = '#050508'; ctx.fillRect(0,0,W,H);
+
+  // Stars
+  if(!cv._stars){
+    cv._stars = Array.from({length:50},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+.3}));
+  }
+  cv._stars.forEach(s => {
+    ctx.fillStyle = `rgba(255,255,255,${0.2+Math.random()*.05})`;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+  });
+
+  // Pole
+  if(gameState === 'spinning' && platforms[0]){
+    const poleX = W * POLE_X_FRAC;
+    const poleTop = platforms[0].y - 60;
+    ctx.save();
+    ctx.shadowColor = '#aa44ff'; ctx.shadowBlur = 10;
+    const pg = ctx.createLinearGradient(poleX-3,0,poleX+3,0);
+    pg.addColorStop(0,'#330066'); pg.addColorStop(0.5,'#aa44ff'); pg.addColorStop(1,'#330066');
+    ctx.fillStyle = pg;
+    ctx.fillRect(poleX - 3, poleTop, 6, H - poleTop);
+    ctx.restore();
+  }
+
+  // Platforms
+  platforms.forEach(p => {
+    ctx.save();
+    ctx.shadowColor = `hsl(${p.hue},100%,65%)`; ctx.shadowBlur = 10;
+    const g = ctx.createLinearGradient(p.x-p.w/2,0,p.x+p.w/2,0);
+    g.addColorStop(0,`hsla(${p.hue},80%,20%,.8)`);
+    g.addColorStop(0.5,`hsl(${p.hue},100%,55%)`);
+    g.addColorStop(1,`hsla(${p.hue},80%,20%,.8)`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.roundRect(p.x-p.w/2, p.y-PLATFORM_H/2, p.w, PLATFORM_H, 4);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Character
+  if(char.alive || gameState !== 'dead'){
+    const hue = (score * 20) % 360;
+    ctx.save();
+    ctx.shadowColor = `hsl(${hue},100%,65%)`; ctx.shadowBlur = 16;
+    const cg = ctx.createRadialGradient(char.x-CHAR_R*.3,char.y-CHAR_R*.3,1,char.x,char.y,CHAR_R);
+    cg.addColorStop(0,'#fff');
+    cg.addColorStop(0.4,`hsl(${hue},100%,65%)`);
+    cg.addColorStop(1,`hsla(${hue},100%,30%,.8)`);
+    ctx.beginPath(); ctx.arc(char.x, char.y, CHAR_R, 0, Math.PI*2);
+    ctx.fillStyle = cg; ctx.fill();
+    ctx.restore();
+  }
+
+  // Particles
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+document.addEventListener('keydown', e => { if(e.code === 'Space'){ e.preventDefault(); jump(); } });
+cv.addEventListener('click', jump);
+cv.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, {passive:false});
+window.addEventListener('resize', () => { resize(); });
+
+newGame();
+</script>
+</body>
+</html>

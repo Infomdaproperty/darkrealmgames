@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pop Parade</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#ff4fa0,#00e5ff,#ffd460);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:5px;margin-top:4px;}
+.scores{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;justify-content:center;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,79,160,.18);border-radius:6px;padding:3px 12px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#ff4fa0;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(255,79,160,.18);cursor:crosshair;touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#0a060a,#050508);border:2px solid #ff4fa0;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(255,79,160,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ff4fa0;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#2a001a,#100008);border:1px solid #ff4fa0;border-radius:8px;color:#ff4fa0;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>POP PARADE</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Time</div><div class="score-val" id="el-time">90</div></div>
+  <div class="score-box"><div class="score-label">Lives</div><div class="score-val" id="el-lives">3</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Tap / click balloons before they escape!</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">TIME UP!</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Pop more!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W,H;
+const COLORS=['#ff4fa0','#00e5ff','#ffd460','#44ff88','#cc44ff','#ff6b2d'];
+let balloons,particles;
+let score,lives,timeLeft,best,gameState,raf,timerInt;
+
+function resize(){
+  const a=Math.min(window.innerWidth-20,360);
+  W=a; H=Math.round(a*1.5);
+  cv.width=W; cv.height=H;
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  balloons=[]; particles=[];
+  score=0; lives=3; timeLeft=90;
+  best=+(localStorage.getItem('popparade_best')||0);
+  gameState='playing';
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    if(gameState!=='playing')return;
+    timeLeft--;
+    document.getElementById('el-time').textContent=timeLeft;
+    if(timeLeft<=0)endGame();
+  },1000);
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent=score;
+  document.getElementById('el-lives').textContent=lives;
+  document.getElementById('el-best').textContent=best;
+}
+
+function spawnBalloon(){
+  const val=Math.ceil(Math.random()*5);
+  const r=20+val*5;
+  const col=COLORS[Math.floor(Math.random()*COLORS.length)];
+  const vy=-(0.8+Math.random()*1.2)/(val*0.4+0.6);
+  balloons.push({
+    x:Math.random()*(W-r*2)+r,
+    y:H+r,
+    r,val,color:col,
+    vx:(Math.random()-.5)*0.6,
+    vy,
+    wobble:Math.random()*Math.PI*2,
+    alive:true
+  });
+}
+
+function spawnParticles(x,y,col,n=10){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=Math.random()*6+2;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,col,r:Math.random()*5+2});
+  }
+}
+
+function tryPop(mx,my){
+  if(gameState!=='playing')return;
+  for(let i=balloons.length-1;i>=0;i--){
+    const b=balloons[i];
+    if(!b.alive)continue;
+    if(Math.hypot(mx-b.x,my-b.y)<b.r){
+      b.alive=false;
+      score+=b.val;
+      spawnParticles(b.x,b.y,b.color,8+b.val*2);
+      updateHUD();
+      if(score>best){best=score;localStorage.setItem('popparade_best',best);updateHUD();}
+      break;
+    }
+  }
+}
+
+let spawnTimer=0;
+function loop(){
+  raf=requestAnimationFrame(loop);
+  if(gameState==='playing'){
+    spawnTimer++;
+    const spawnRate=Math.max(25,50-Math.floor((90-timeLeft)/15)*5);
+    if(spawnTimer%spawnRate===0)spawnBalloon();
+    balloons.forEach(b=>{
+      if(!b.alive)return;
+      b.wobble+=0.04;
+      b.x+=b.vx+Math.sin(b.wobble)*0.4;
+      b.y+=b.vy;
+      b.x=Math.max(b.r,Math.min(W-b.r,b.x));
+      if(b.y<-b.r-20){
+        b.alive=false;
+        lives--;
+        document.getElementById('el-lives').textContent=lives;
+        if(lives<=0)endGame();
+      }
+    });
+    balloons=balloons.filter(b=>b.alive||b.y<H+100);
+  }
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.022;});
+  particles=particles.filter(p=>p.life>0);
+
+  // Draw
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  // Soft gradient bg
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#0a0518');bg.addColorStop(1,'#050508');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  // Balloons
+  balloons.forEach(b=>{
+    if(!b.alive)return;
+    ctx.shadowColor=b.color;ctx.shadowBlur=14;
+    // Balloon body
+    ctx.beginPath();ctx.ellipse(b.x,b.y,b.r,b.r*1.2,0,0,Math.PI*2);
+    const g=ctx.createRadialGradient(b.x-b.r*.3,b.y-b.r*.4,b.r*.1,b.x,b.y,b.r*1.2);
+    g.addColorStop(0,'rgba(255,255,255,.8)');g.addColorStop(0.3,b.color);g.addColorStop(1,b.color+'66');
+    ctx.fillStyle=g;ctx.fill();
+    // Balloon knot
+    ctx.fillStyle=b.color;
+    ctx.beginPath();ctx.arc(b.x,b.y+b.r*1.2,4,0,Math.PI*2);ctx.fill();
+    // String
+    ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(b.x,b.y+b.r*1.2+4);ctx.lineTo(b.x+Math.sin(b.wobble*2)*8,b.y+b.r*1.8);ctx.stroke();
+    // Value number
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.font=`bold ${Math.round(b.r*.8)}px 'Orbitron',monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(b.val,b.x,b.y);
+  });
+
+  // Particles
+  particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
+  ctx.globalAlpha=1;
+
+  // Lives
+  for(let i=0;i<3;i++){
+    ctx.fillStyle=i<lives?'#ff4fa0':'rgba(255,255,255,.1)';
+    ctx.font=`${Math.round(W*.045)}px serif`;
+    ctx.textAlign='left';ctx.textBaseline='bottom';
+    ctx.fillText('',10+i*22,H-6);
+    ctx.fillStyle=i<lives?'#ff4fa0':'rgba(255,255,255,.1)';
+    ctx.beginPath();ctx.arc(16+i*22,H-14,8,0,Math.PI*2);ctx.fill();
+  }
+}
+
+function endGame(){
+  gameState='over';
+  clearInterval(timerInt);
+  if(score>best){best=score;localStorage.setItem('popparade_best',best);}
+  setTimeout(()=>{
+    document.getElementById('ov-title').textContent=lives<=0?'ESCAPED!':'TIME UP!';
+    document.getElementById('ov-score').textContent=score;
+    document.getElementById('ov-msg').textContent=score>100?'Pop star!':score>40?'Nice popping!':'Pop more!';
+    document.getElementById('overlay').classList.add('show');
+  },400);
+}
+
+cv.addEventListener('click',e=>{
+  const r=cv.getBoundingClientRect();
+  tryPop(e.clientX-r.left,e.clientY-r.top);
+});
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const t=e.touches[0],r=cv.getBoundingClientRect();
+  tryPop(t.clientX-r.left,t.clientY-r.top);
+},{passive:false});
+window.addEventListener('resize',()=>resize());
+newGame();
+</script>
+</body>
+</html>

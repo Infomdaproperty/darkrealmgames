@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Snake</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#00ff88,#00ccff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(0,255,136,.12);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#00ff88;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(0,255,136,.18),0 0 2px rgba(0,255,136,.3);touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #00ff88;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(0,255,136,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#00ff88;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#003320,#001a10);border:1px solid #00ff88;border-radius:8px;color:#00ff88;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>SNAKE</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Arrow keys / WASD to move &bull; Swipe on mobile</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Keep slithering!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const GRID = 20;
+let W, H, CS;
+let snake, dir, nextDir, food, particles;
+let score, best, gameState, speed, moveTimer, moveInterval;
+let raf, lastTime = 0;
+
+function resize(){
+  const avail = Math.min(window.innerWidth - 20, 380);
+  CS = Math.floor(avail / GRID);
+  W = CS * GRID; H = CS * GRID;
+  cv.width = W; cv.height = H;
+}
+
+function randFood(){
+  let pos;
+  do { pos = {x: Math.floor(Math.random()*GRID), y: Math.floor(Math.random()*GRID)}; }
+  while(snake.some(s=>s.x===pos.x&&s.y===pos.y));
+  return pos;
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  const mid = Math.floor(GRID/2);
+  snake = [{x:mid,y:mid},{x:mid-1,y:mid},{x:mid-2,y:mid}];
+  dir = {x:1,y:0}; nextDir = {x:1,y:0};
+  food = randFood();
+  particles = [];
+  score = 0; best = +(localStorage.getItem('snake_best')||0);
+  gameState = 'playing'; speed = 120; moveTimer = 0;
+  updateHUD();
+  cancelAnimationFrame(raf);
+  lastTime = 0;
+  raf = requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent = score;
+  document.getElementById('el-best').textContent = best;
+}
+
+function spawnParticles(x, y, col, n=8){
+  for(let i=0;i<n;i++){
+    const ang = Math.random()*Math.PI*2, sp = Math.random()*3+1;
+    particles.push({x:x*CS+CS/2, y:y*CS+CS/2, vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, life:1, col, r:Math.random()*3+1});
+  }
+}
+
+function step(){
+  dir = {x:nextDir.x, y:nextDir.y};
+  const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+  if(head.x<0||head.x>=GRID||head.y<0||head.y>=GRID||snake.some(s=>s.x===head.x&&s.y===head.y)){
+    gameState = 'dead';
+    if(score > best){ best = score; localStorage.setItem('snake_best', best); updateHUD(); }
+    setTimeout(()=>{
+      document.getElementById('ov-title').textContent = 'GAME OVER';
+      document.getElementById('ov-score').textContent = score;
+      document.getElementById('ov-msg').textContent = score>=20?'Master Serpent!':score>=10?'Nice run!':'Keep slithering!';
+      document.getElementById('overlay').classList.add('show');
+    }, 500);
+    return;
+  }
+  snake.unshift(head);
+  if(head.x===food.x&&head.y===food.y){
+    score++;
+    spawnParticles(food.x, food.y, '#ff00cc', 10);
+    food = randFood();
+    if(score%5===0) speed = Math.max(60, speed - 8);
+    updateHUD();
+  } else {
+    snake.pop();
+  }
+}
+
+function loop(ts){
+  raf = requestAnimationFrame(loop);
+  const dt = ts - lastTime; lastTime = ts;
+  if(gameState === 'playing'){
+    moveTimer += dt;
+    if(moveTimer >= speed){ moveTimer = 0; step(); }
+  }
+  particles.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.life-=0.03; });
+  particles = particles.filter(p=>p.life>0);
+
+  ctx.fillStyle = '#050508'; ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle = 'rgba(0,255,136,.04)'; ctx.lineWidth = 1;
+  for(let x=0;x<=GRID;x++){ ctx.beginPath();ctx.moveTo(x*CS,0);ctx.lineTo(x*CS,H);ctx.stroke(); }
+  for(let y=0;y<=GRID;y++){ ctx.beginPath();ctx.moveTo(0,y*CS);ctx.lineTo(W,y*CS);ctx.stroke(); }
+
+  // Food glow
+  const fp = {x:food.x*CS+CS/2, y:food.y*CS+CS/2};
+  ctx.shadowColor='#ff00cc'; ctx.shadowBlur=CS*0.8;
+  ctx.fillStyle='#ff00cc';
+  ctx.beginPath(); ctx.arc(fp.x, fp.y, CS*0.38, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur=0;
+
+  // Snake
+  snake.forEach((seg, i)=>{
+    const frac = 1 - i/snake.length;
+    const alpha = 0.4 + frac*0.6;
+    ctx.shadowColor = `rgba(0,255,136,${frac*0.6})`; ctx.shadowBlur = i===0 ? 14 : 6;
+    const g = ctx.createLinearGradient(seg.x*CS, seg.y*CS, (seg.x+1)*CS, (seg.y+1)*CS);
+    g.addColorStop(0, `rgba(0,255,136,${alpha})`);
+    g.addColorStop(1, `rgba(0,200,100,${alpha})`);
+    ctx.fillStyle = g;
+    const pad = i===0 ? 1 : 2;
+    ctx.beginPath();
+    ctx.roundRect(seg.x*CS+pad, seg.y*CS+pad, CS-pad*2, CS-pad*2, i===0?CS*0.3:CS*0.2);
+    ctx.fill();
+    if(i===0){
+      ctx.fillStyle='rgba(255,255,255,.8)';
+      const ex = dir.x===0?0.3:dir.x*0.25, ey = dir.y===0?0.3:dir.y*0.25;
+      ctx.beginPath();ctx.arc(seg.x*CS+CS*(0.5+ex*0.3)-CS*0.08,seg.y*CS+CS*(0.5+ey*0.3)-CS*0.08,CS*0.1,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(seg.x*CS+CS*(0.5-ex*0.3)+CS*0.08,seg.y*CS+CS*(0.5-ey*0.3)+CS*0.08,CS*0.1,0,Math.PI*2);ctx.fill();
+    }
+    ctx.shadowBlur=0;
+  });
+
+  // Particles
+  particles.forEach(p=>{ ctx.globalAlpha=p.life; ctx.fillStyle=p.col; ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill(); });
+  ctx.globalAlpha=1;
+}
+
+// Keyboard
+document.addEventListener('keydown', e=>{
+  if(e.code==='ArrowUp'||e.code==='KeyW'){ if(dir.y!==1){ nextDir={x:0,y:-1}; } e.preventDefault(); }
+  if(e.code==='ArrowDown'||e.code==='KeyS'){ if(dir.y!==-1){ nextDir={x:0,y:1}; } e.preventDefault(); }
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){ if(dir.x!==1){ nextDir={x:-1,y:0}; } e.preventDefault(); }
+  if(e.code==='ArrowRight'||e.code==='KeyD'){ if(dir.x!==-1){ nextDir={x:1,y:0}; } e.preventDefault(); }
+});
+
+// Touch swipe
+let tx0=0, ty0=0;
+cv.addEventListener('touchstart', e=>{ tx0=e.touches[0].clientX; ty0=e.touches[0].clientY; e.preventDefault(); },{passive:false});
+cv.addEventListener('touchend', e=>{
+  const dx=e.changedTouches[0].clientX-tx0, dy=e.changedTouches[0].clientY-ty0;
+  if(Math.abs(dx)>Math.abs(dy)){ if(dx>20&&dir.x!==-1) nextDir={x:1,y:0}; else if(dx<-20&&dir.x!==1) nextDir={x:-1,y:0}; }
+  else { if(dy>20&&dir.y!==-1) nextDir={x:0,y:1}; else if(dy<-20&&dir.y!==1) nextDir={x:0,y:-1}; }
+  e.preventDefault();
+},{passive:false});
+
+window.addEventListener('resize', ()=>{ if(gameState==='playing') resize(); });
+newGame();
+</script>
+</body>
+</html>

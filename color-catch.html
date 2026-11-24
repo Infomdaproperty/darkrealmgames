@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Color Catch</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#ff4466,#44aaff,#44ff88,#ffee44);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
+.scores{display:flex;gap:12px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:3px 12px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#44ff88;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(68,255,136,.18),0 0 2px rgba(68,255,136,.3);cursor:pointer;touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #44aaff;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(68,170,255,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ff4466;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#1a0033,#000a1a);border:1px solid #44aaff;border-radius:8px;color:#44aaff;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>COLOR CATCH</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Lives</div><div class="score-val" id="el-lives">3</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Space / Tap paddle to change color</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Match the colors!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H;
+
+const COLORS = [
+  {name:'red',    hue:0,   hex:'#ff3355', glow:'rgba(255,51,85,.7)'},
+  {name:'blue',   hue:210, hex:'#44aaff', glow:'rgba(68,170,255,.7)'},
+  {name:'green',  hue:135, hex:'#44ff88', glow:'rgba(68,255,136,.7)'},
+  {name:'yellow', hue:55,  hex:'#ffee44', glow:'rgba(255,238,68,.7)'},
+];
+
+const PADDLE_W_FRAC = 0.26;
+const PADDLE_H = 14;
+const BALL_R = 13;
+
+let paddle, balls, particles, score, lives, best, colorIdx, gameState, raf, spawnTimer, spawnInterval, speed;
+
+function resize(){
+  const avail = Math.min(window.innerWidth - 20, 360);
+  W = avail; H = Math.round(W * 1.6);
+  cv.width = W; cv.height = H;
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  colorIdx = 0;
+  paddle = {x: W/2, y: H - 40, w: Math.round(W * PADDLE_W_FRAC)};
+  balls = []; particles = [];
+  score = 0; lives = 3;
+  best = +(localStorage.getItem('ccatch_best') || 0);
+  spawnTimer = 0; spawnInterval = 70; speed = 2.2;
+  gameState = 'playing';
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent = score;
+  document.getElementById('el-lives').textContent = lives;
+  document.getElementById('el-best').textContent = best;
+}
+
+function switchColor(){
+  if(gameState !== 'playing') return;
+  colorIdx = (colorIdx + 1) % COLORS.length;
+}
+
+function spawnBall(){
+  const ci = Math.floor(Math.random() * COLORS.length);
+  const margin = BALL_R + 10;
+  balls.push({
+    x: margin + Math.random() * (W - margin*2),
+    y: -BALL_R,
+    vy: speed + Math.random() * 1.2,
+    ci,
+    alive: true
+  });
+}
+
+function spawnParticles(x, y, col, n){
+  for(let i=0;i<n;i++){
+    const ang = Math.random()*Math.PI*2, sp = Math.random()*4+1;
+    particles.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,col,r:Math.random()*4+1});
+  }
+}
+
+function drawPaddle(){
+  const c = COLORS[colorIdx];
+  const ph = H - 40;
+  const pw = paddle.w;
+  const px = paddle.x - pw/2;
+  ctx.save();
+  ctx.shadowColor = c.glow; ctx.shadowBlur = 20;
+  const g = ctx.createLinearGradient(px, 0, px+pw, 0);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(0.2, c.hex);
+  g.addColorStop(0.8, c.hex);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.roundRect(px, ph - PADDLE_H/2, pw, PADDLE_H, 7);
+  ctx.fill();
+  // Color indicator dots
+  for(let i=0;i<COLORS.length;i++){
+    const cx2 = px + 16 + i*18;
+    ctx.beginPath(); ctx.arc(cx2, ph, 5, 0, Math.PI*2);
+    ctx.fillStyle = i===colorIdx ? COLORS[i].hex : 'rgba(255,255,255,.12)';
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawBall(b){
+  const c = COLORS[b.ci];
+  ctx.save();
+  ctx.shadowColor = c.glow; ctx.shadowBlur = 14;
+  const g = ctx.createRadialGradient(b.x - BALL_R*0.3, b.y - BALL_R*0.3, 1, b.x, b.y, BALL_R);
+  g.addColorStop(0, '#fff');
+  g.addColorStop(0.3, c.hex);
+  g.addColorStop(1, `hsl(${c.hue},100%,20%)`);
+  ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, Math.PI*2);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+}
+
+function loop(){
+  raf = requestAnimationFrame(loop);
+
+  if(gameState === 'playing'){
+    // Spawn
+    spawnTimer++;
+    if(spawnTimer >= spawnInterval){
+      spawnBall(); spawnTimer = 0;
+      spawnInterval = Math.max(28, spawnInterval - 0.6);
+      speed = Math.min(6, speed + 0.04);
+    }
+
+    // Move balls
+    const ph = H - 40;
+    balls.forEach(b => {
+      b.y += b.vy;
+      // Check catch
+      if(b.alive && b.y + BALL_R >= ph - PADDLE_H/2 && b.y - BALL_R <= ph + PADDLE_H/2){
+        if(b.x >= paddle.x - paddle.w/2 && b.x <= paddle.x + paddle.w/2){
+          b.alive = false;
+          if(b.ci === colorIdx){
+            score += 10;
+            spawnParticles(b.x, b.y, COLORS[b.ci].hex, 10);
+          } else {
+            lives--;
+            spawnParticles(b.x, b.y, '#ff3355', 8);
+          }
+          updateHUD();
+        }
+      }
+      // Miss
+      if(b.alive && b.y - BALL_R > H){
+        b.alive = false;
+        if(b.ci === colorIdx){ lives--; updateHUD(); }
+      }
+    });
+    balls = balls.filter(b => b.alive || b.y < H + 50);
+    balls = balls.filter(b => b.alive);
+
+    if(lives <= 0){
+      gameState = 'dead';
+      if(score > best){ best = score; localStorage.setItem('ccatch_best', best); }
+      setTimeout(()=>{
+        document.getElementById('ov-title').textContent = 'GAME OVER';
+        document.getElementById('ov-score').textContent = score;
+        document.getElementById('ov-msg').textContent = score >= 100 ? 'Color master!' : score >= 50 ? 'Nice catching!' : 'Match the colors!';
+        document.getElementById('overlay').classList.add('show');
+      }, 600);
+    }
+  }
+
+  // Particles
+  particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.1; p.life-=0.03; });
+  particles = particles.filter(p => p.life > 0);
+
+  // Draw BG
+  ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,.025)'; ctx.lineWidth = 1;
+  for(let x=0;x<W;x+=36){ ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
+  for(let y=0;y<H;y+=36){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+
+  // Balls
+  if(gameState === 'playing'){
+    balls.forEach(drawBall);
+  }
+
+  // Particles
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // Paddle
+  drawPaddle();
+
+  // Lives hearts
+  ctx.font = `${Math.round(W*.04)}px serif`;
+  ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  for(let i=0;i<3;i++){
+    ctx.globalAlpha = i < lives ? 1 : 0.15;
+    ctx.fillText('♥', 8 + i*22, 8);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Controls
+document.addEventListener('keydown', e => {
+  if(e.code === 'Space'){ e.preventDefault(); switchColor(); }
+  if(e.code === 'ArrowLeft') paddle.x = Math.max(paddle.w/2, paddle.x - 18);
+  if(e.code === 'ArrowRight') paddle.x = Math.min(W - paddle.w/2, paddle.x + 18);
+});
+
+let touchStartX = null;
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const rect = cv.getBoundingClientRect();
+  const tx = (t.clientX - rect.left) * (W / rect.width);
+  const ty = (t.clientY - rect.top) * (H / rect.height);
+  // If tapping near paddle area, switch color
+  if(ty > H * 0.75){ switchColor(); }
+  else { paddle.x = Math.max(paddle.w/2, Math.min(W - paddle.w/2, tx)); }
+  touchStartX = tx;
+}, {passive:false});
+
+cv.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const rect = cv.getBoundingClientRect();
+  const tx = (t.clientX - rect.left) * (W / rect.width);
+  paddle.x = Math.max(paddle.w/2, Math.min(W - paddle.w/2, tx));
+}, {passive:false});
+
+cv.addEventListener('mousemove', e => {
+  const rect = cv.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  paddle.x = Math.max(paddle.w/2, Math.min(W - paddle.w/2, mx));
+});
+
+window.addEventListener('resize', () => { resize(); });
+
+newGame();
+</script>
+</body>
+</html>

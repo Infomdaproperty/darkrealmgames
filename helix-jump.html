@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Helix Jump</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:5px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,107,107,.15);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#ff6b6b;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(255,107,107,.18);touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #ff6b6b;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(255,107,107,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ff6b6b;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#2a0010,#1a0008);border:1px solid #ff6b6b;border-radius:8px;color:#ff6b6b;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>HELIX JUMP</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Drag left / right to rotate the helix</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">BLOCKED!</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Keep spinning!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H;
+
+function resize(){
+  const avail = Math.min(window.innerWidth-20, 340);
+  W = avail; H = Math.round(W*1.7);
+  cv.width = W; cv.height = H;
+}
+
+const NUM_PLATFORMS = 7;
+const PLATFORM_H = 14;
+const PLATFORM_RX = 0.36;
+const PLATFORM_RY = 0.1;
+const GAP_ANGLE = Math.PI * 0.6;
+const FALL_SPEED = 3;
+const BALL_R = 11;
+
+let platforms, ball, particles;
+let score, best, gameState, raf;
+let helixAngle = 0;
+let dragStartX = null, lastDragX = null;
+let cameraY = 0;
+let platformSpacing;
+let hues = [0,30,60,120,180,210,270,300];
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  score = 0; best = +(localStorage.getItem('helix_best')||0);
+  gameState = 'playing';
+  helixAngle = 0; cameraY = 0;
+  platformSpacing = H / (NUM_PLATFORMS + 1);
+  particles = [];
+
+  // Create platforms
+  platforms = [];
+  for(let i=0;i<NUM_PLATFORMS+3;i++){
+    const gapStart = Math.random()*Math.PI*2;
+    platforms.push({
+      y: H*0.3 + i*platformSpacing,
+      gapStart,
+      gapEnd: gapStart + GAP_ANGLE,
+      hue: hues[i%hues.length],
+      passed: false
+    });
+  }
+
+  ball = {x:W/2, y:H*0.08, vy:0, alive:true, hue:60, colorTimer:0};
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent=score;
+  document.getElementById('el-best').textContent=best;
+}
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+  if(gameState!=='playing'){draw();return;}
+
+  // Fall
+  ball.vy += 0.3;
+  ball.vy = Math.min(ball.vy, FALL_SPEED*2);
+  ball.y += ball.vy;
+  ball.colorTimer++;
+  if(ball.colorTimer>8){ball.colorTimer=0;ball.hue=(ball.hue+30)%360;}
+
+  // Check each platform
+  const rx = W * PLATFORM_RX;
+  const ry = W * PLATFORM_RY;
+  const cx = W/2;
+
+  platforms.forEach(p=>{
+    if(p.passed) return;
+    const platWorldY = p.y - cameraY;
+
+    // Ball y within platform zone
+    if(ball.y + BALL_R > platWorldY - PLATFORM_H/2 &&
+       ball.y - BALL_R < platWorldY + PLATFORM_H/2){
+
+      // Find ball's angle on the ellipse
+      const ballAng = Math.atan2((ball.y - platWorldY + cameraY - p.y) / ry, (ball.x - cx) / rx);
+      // Actual angle of ball relative to helix
+      let relAng = ((Math.atan2(ball.y - platWorldY, ball.x - cx)) + Math.PI*2) % (Math.PI*2);
+
+      // Gap is from gapStart+helixAngle to gapEnd+helixAngle
+      const gs = (p.gapStart + helixAngle + Math.PI*2) % (Math.PI*2);
+      const ge = (p.gapEnd + helixAngle + Math.PI*2) % (Math.PI*2);
+      const inGap = gs < ge ?
+        (relAng >= gs && relAng <= ge) :
+        (relAng >= gs || relAng <= ge);
+
+      if(!inGap){
+        // Hit platform
+        ball.y = platWorldY - PLATFORM_H/2 - BALL_R;
+        ball.vy = 0;
+        gameState='dead';
+        for(let i=0;i<16;i++){
+          const ang=Math.random()*Math.PI*2,sp=Math.random()*4+1;
+          particles.push({x:ball.x,y:platWorldY,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,col:`hsl(${p.hue},100%,60%)`,r:3+Math.random()*3});
+        }
+        setTimeout(()=>{
+          document.getElementById('ov-title').textContent='BLOCKED!';
+          document.getElementById('ov-score').textContent=score;
+          document.getElementById('ov-msg').textContent=score>15?'Helix Master!':score>8?'Nice run!':'Keep spinning!';
+          document.getElementById('overlay').classList.add('show');
+        },700);
+        return;
+      } else {
+        // Passed through gap
+        if(!p.passed){
+          p.passed=true;
+          score++;updateHUD();
+          if(score>best){best=score;localStorage.setItem('helix_best',best);updateHUD();}
+          for(let i=0;i<6;i++){
+            const ang=Math.random()*Math.PI*2;
+            particles.push({x:ball.x,y:platWorldY,vx:Math.cos(ang)*2,vy:Math.sin(ang)*2,life:1,col:`hsl(${p.hue},100%,70%)`,r:3});
+          }
+        }
+      }
+    }
+  });
+
+  // Camera follows ball down
+  if(ball.y > H*0.6){
+    cameraY += ball.vy;
+  }
+
+  // Add new platforms as we scroll
+  while(platforms.length<NUM_PLATFORMS+score+3){
+    const last=platforms[platforms.length-1];
+    const gapStart=Math.random()*Math.PI*2;
+    platforms.push({
+      y:last.y+platformSpacing,
+      gapStart,
+      gapEnd:gapStart+GAP_ANGLE,
+      hue:hues[platforms.length%hues.length],
+      passed:false
+    });
+  }
+
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.025;});
+  particles=particles.filter(p=>p.life>0);
+
+  draw();
+}
+
+function draw(){
+  ctx.fillStyle='#050508';
+  ctx.fillRect(0,0,W,H);
+
+  // Central pole
+  ctx.strokeStyle='rgba(255,255,255,.1)';
+  ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+
+  // Platforms
+  const rx=W*PLATFORM_RX, ry=W*PLATFORM_RY, cx=W/2;
+  platforms.forEach(p=>{
+    const py=p.y-cameraY;
+    if(py<-50||py>H+50) return;
+
+    const gs=(p.gapStart+helixAngle+Math.PI*2)%(Math.PI*2);
+    const ge=(p.gapEnd+helixAngle+Math.PI*2)%(Math.PI*2);
+
+    // Draw solid arc (not the gap)
+    ctx.shadowColor=`hsl(${p.hue},100%,50%)`;ctx.shadowBlur=8;
+    ctx.strokeStyle=`hsl(${p.hue},80%,55%)`;
+    ctx.lineWidth=PLATFORM_H;
+
+    // Draw the solid portion
+    ctx.beginPath();
+    if(gs<ge){
+      // Gap is from gs to ge, solid is rest
+      ctx.ellipse(cx,py,rx,ry,0,ge,gs+Math.PI*2);
+    } else {
+      ctx.ellipse(cx,py,rx,ry,0,ge,gs);
+    }
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  });
+
+  // Particles
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // Ball
+  if(ball.alive||gameState==='dead'){
+    ctx.shadowColor=`hsl(${ball.hue},100%,60%)`;ctx.shadowBlur=16;
+    ctx.fillStyle=`hsl(${ball.hue},80%,60%)`;
+    ctx.beginPath();ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.4)';
+    ctx.beginPath();ctx.arc(ball.x-BALL_R*.3,ball.y-BALL_R*.3,BALL_R*.3,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  // Score overlay
+  ctx.fillStyle='rgba(255,107,107,.8)';
+  ctx.font=`bold ${Math.round(W*.1)}px 'Orbitron',monospace`;
+  ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText(score,W/2,10);
+}
+
+// Drag to rotate
+cv.addEventListener('mousedown',e=>{dragStartX=e.clientX;lastDragX=e.clientX;});
+cv.addEventListener('mousemove',e=>{
+  if(lastDragX===null||gameState!=='playing') return;
+  const dx=e.clientX-lastDragX;
+  helixAngle+=dx*0.012;
+  lastDragX=e.clientX;
+});
+cv.addEventListener('mouseup',()=>{dragStartX=null;lastDragX=null;});
+
+cv.addEventListener('touchstart',e=>{e.preventDefault();lastDragX=e.touches[0].clientX;},{passive:false});
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(gameState!=='playing') return;
+  const dx=e.touches[0].clientX-lastDragX;
+  helixAngle+=dx*0.012;
+  lastDragX=e.touches[0].clientX;
+},{passive:false});
+cv.addEventListener('touchend',e=>{e.preventDefault();lastDragX=null;},{passive:false});
+
+// Arrow keys
+document.addEventListener('keydown',e=>{
+  if(e.code==='ArrowLeft') helixAngle-=0.08;
+  if(e.code==='ArrowRight') helixAngle+=0.08;
+});
+
+window.addEventListener('resize',resize);
+newGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gem Crush</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:radial-gradient(ellipse at top,#2d0d4f 0%,#0d0020 70%);
+  color:#fff;
+  font-family:'Nunito',sans-serif;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:12px 16px 24px;
+  user-select:none;
+  -webkit-user-select:none;
+  overflow-x:hidden;
+}
+h1{
+  font-size:clamp(1.6rem,6vw,2.6rem);
+  font-weight:900;
+  background:linear-gradient(135deg,#ff80ff,#c850ff,#8000ff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  letter-spacing:.06em;
+  margin-bottom:10px;
+  text-shadow:none;
+}
+.stats{
+  display:flex;
+  gap:12px;
+  margin-bottom:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+.stat-box{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(200,80,255,.3);
+  border-radius:10px;
+  padding:5px 14px;
+  text-align:center;
+  min-width:72px;
+}
+.stat-label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45)}
+.stat-val{font-size:1.3rem;font-weight:900;color:#fff}
+#canvas-wrap{
+  position:relative;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 0 60px rgba(200,80,255,.25),0 8px 32px rgba(0,0,0,.5);
+  border:1px solid rgba(200,80,255,.2);
+}
+canvas{display:block;cursor:pointer;touch-action:none}
+#combo-pop{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-size:3rem;
+  font-weight:900;
+  color:#ffd700;
+  text-shadow:0 0 30px #ffd700,0 2px 0 rgba(0,0,0,.5);
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .15s;
+  white-space:nowrap;
+}
+#overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.8);
+  backdrop-filter:blur(4px);
+  z-index:100;
+  align-items:center;
+  justify-content:center;
+}
+#overlay.show{display:flex}
+.ov-box{
+  background:linear-gradient(145deg,#2d0d4f,#160030);
+  border:2px solid #c850ff;
+  border-radius:20px;
+  padding:36px 32px;
+  text-align:center;
+  max-width:300px;
+  width:88%;
+  box-shadow:0 0 60px rgba(200,80,255,.4);
+}
+.ov-box h2{font-size:2rem;font-weight:900;margin-bottom:6px;color:#ff80ff}
+.ov-box p{color:rgba(255,255,255,.6);font-size:.9rem;margin-bottom:4px}
+.ov-score{font-size:2.6rem;font-weight:900;color:#ffd700;display:block;margin:8px 0 20px}
+.btn{
+  background:linear-gradient(135deg,#c850ff,#8000ff);
+  border:none;
+  border-radius:12px;
+  color:#fff;
+  font-family:'Nunito',sans-serif;
+  font-size:1.1rem;
+  font-weight:900;
+  padding:12px 36px;
+  cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+  display:inline-block;
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(200,80,255,.55)}
+.btn:active{transform:translateY(0)}
+</style>
+</head>
+<body>
+<h1>GEM CRUSH</h1>
+<div class="stats">
+  <div class="stat-box">
+    <div class="stat-label">Score</div>
+    <div class="stat-val" id="el-score">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Level</div>
+    <div class="stat-val" id="el-level">1</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Moves</div>
+    <div class="stat-val" id="el-moves">30</div>
+  </div>
+</div>
+<div id="canvas-wrap">
+  <canvas id="cv"></canvas>
+  <div id="combo-pop"></div>
+</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">Game Over!</h2>
+    <p id="ov-sub">Final Score</p>
+    <span class="ov-score" id="ov-score">0</span>
+    <button class="btn" onclick="startGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+const COLS = 8, ROWS = 8, TYPES = 6;
+const BASE_MOVES = 30;
+
+// Each gem: [mid, dark, light] for gradient
+const PALETTES = [
+  ['#ff5252','#b71c1c','#ff867c'],  // ruby
+  ['#448aff','#1565c0','#80b4ff'],  // sapphire
+  ['#69f0ae','#00c853','#b9f6ca'],  // emerald
+  ['#ffca28','#f57f17','#fff9c4'],  // topaz
+  ['#ce93d8','#7b1fa2','#f3e5f5'],  // amethyst
+  ['#4dd0e1','#006064','#b2ebf2'],  // aquamarine
+];
+
+let CELL, grid, selected, animating, score, level, moves, particles, flashSet;
+
+function resize(){
+  const avail = Math.min(window.innerWidth - 32, 500);
+  CELL = Math.floor(avail / COLS);
+  cv.width = CELL * COLS;
+  cv.height = CELL * ROWS;
+}
+
+function newGrid(){
+  return Array.from({length:ROWS}, () =>
+    Array.from({length:COLS}, () => Math.floor(Math.random() * TYPES))
+  );
+}
+
+function startGame(){
+  resize();
+  score = 0; level = 1; moves = BASE_MOVES;
+  selected = null; animating = false;
+  particles = []; flashSet = new Set();
+  grid = newGrid();
+  // Re-roll until no initial matches
+  while(findMatches().size > 0) grid = newGrid();
+  document.getElementById('overlay').classList.remove('show');
+  updateUI();
+  requestAnimationFrame(loop);
+}
+
+function updateUI(){
+  document.getElementById('el-score').textContent = score.toLocaleString();
+  document.getElementById('el-level').textContent = level;
+  document.getElementById('el-moves').textContent = moves;
+}
+
+function findMatches(){
+  const matched = new Set();
+  for(let r = 0; r < ROWS; r++){
+    let run = 1;
+    for(let c = 1; c <= COLS; c++){
+      if(c < COLS && grid[r][c] === grid[r][c-1]) run++;
+      else { if(run >= 3) for(let i = c-run; i < c; i++) matched.add(r*COLS+i); run = 1; }
+    }
+  }
+  for(let c = 0; c < COLS; c++){
+    let run = 1;
+    for(let r = 1; r <= ROWS; r++){
+      if(r < ROWS && grid[r][c] === grid[r-1][c]) run++;
+      else { if(run >= 3) for(let i = r-run; i < r; i++) matched.add(i*COLS+c); run = 1; }
+    }
+  }
+  return matched;
+}
+
+function swap(r1,c1,r2,c2){
+  const t = grid[r1][c1]; grid[r1][c1] = grid[r2][c2]; grid[r2][c2] = t;
+}
+
+function handlePick(px, py){
+  if(animating) return;
+  const c = Math.floor(px / CELL), r = Math.floor(py / CELL);
+  if(r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+
+  if(!selected){
+    selected = {r, c};
+    return;
+  }
+
+  const {r:sr, c:sc} = selected;
+  if(sr === r && sc === c){ selected = null; return; }
+
+  const isAdj = (Math.abs(r-sr) + Math.abs(c-sc) === 1);
+  if(!isAdj){ selected = {r, c}; return; }
+
+  swap(sr, sc, r, c);
+  const m = findMatches();
+  if(m.size === 0){
+    swap(sr, sc, r, c);
+    selected = {r, c};
+    return;
+  }
+
+  selected = null;
+  moves--;
+  animating = true;
+  updateUI();
+  resolveChain(m, 1);
+}
+
+function resolveChain(matched, combo){
+  flashSet = matched;
+
+  setTimeout(() => {
+    // Collect gem colors before wiping
+    const colorMap = new Map();
+    matched.forEach(k => {
+      colorMap.set(k, grid[Math.floor(k/COLS)][k%COLS]);
+    });
+
+    // Remove matched gems
+    matched.forEach(k => {
+      grid[Math.floor(k/COLS)][k%COLS] = -1;
+    });
+
+    // Spawn particles
+    matched.forEach(k => {
+      const r = Math.floor(k/COLS), c = k%COLS;
+      const col = PALETTES[colorMap.get(k)][0];
+      const cx = (c+.5)*CELL, cy = (r+.5)*CELL;
+      for(let i = 0; i < 8; i++){
+        const ang = Math.random()*Math.PI*2;
+        const spd = CELL*(.03 + Math.random()*.04);
+        particles.push({x:cx, y:cy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd, life:1, col});
+      }
+    });
+
+    // Drop gems down
+    for(let c = 0; c < COLS; c++){
+      let empties = [];
+      for(let r = ROWS-1; r >= 0; r--){
+        if(grid[r][c] === -1) empties.push(r);
+        else if(empties.length){
+          const tgt = empties.shift();
+          grid[tgt][c] = grid[r][c];
+          grid[r][c] = -1;
+          empties.push(r);
+        }
+      }
+      empties.forEach(r => { grid[r][c] = Math.floor(Math.random()*TYPES); });
+    }
+
+    score += matched.size * 50 * combo;
+    if(combo >= 2) showCombo('x'+combo);
+    updateUI();
+
+    setTimeout(() => {
+      flashSet = new Set();
+      const next = findMatches();
+      if(next.size > 0){
+        resolveChain(next, combo+1);
+      } else {
+        animating = false;
+        checkLevelAndEnd();
+      }
+    }, 350);
+  }, 280);
+}
+
+function checkLevelAndEnd(){
+  if(score >= level * 1000){
+    level++;
+    moves += 12;
+    showCombo('LEVEL ' + level);
+    updateUI();
+  }
+  if(moves <= 0){
+    setTimeout(() => {
+      document.getElementById('ov-score').textContent = score.toLocaleString();
+      document.getElementById('overlay').classList.add('show');
+    }, 400);
+  }
+}
+
+function showCombo(text){
+  const el = document.getElementById('combo-pop');
+  el.textContent = text;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.opacity = '0', 700);
+}
+
+function drawGem(gx, gy, color, glowing, flashing){
+  const pad = CELL * .1;
+  const sz = CELL - pad*2;
+  const x = gx + pad, y = gy + pad;
+  const r = sz * .18;
+  const [mid, dark, light] = PALETTES[color];
+
+  ctx.save();
+  if(glowing || flashing){
+    ctx.shadowColor = mid;
+    ctx.shadowBlur = glowing ? CELL*.5 : CELL*.3;
+  }
+
+  const grad = ctx.createLinearGradient(x, y, x+sz, y+sz);
+  grad.addColorStop(0, light);
+  grad.addColorStop(.35, mid);
+  grad.addColorStop(1, dark);
+  ctx.fillStyle = grad;
+  rRect(x, y, sz, sz, r);
+  ctx.fill();
+
+  // Shine
+  const shine = ctx.createLinearGradient(x, y, x, y+sz*.5);
+  shine.addColorStop(0, 'rgba(255,255,255,.52)');
+  shine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shine;
+  rRect(x, y, sz, sz*.46, r);
+  ctx.fill();
+
+  if(glowing){
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 2.5;
+    rRect(x+1.5, y+1.5, sz-3, sz-3, r);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function rRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function draw(){
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  // Grid bg
+  for(let r = 0; r < ROWS; r++){
+    for(let c = 0; c < COLS; c++){
+      ctx.fillStyle = (r+c)%2 === 0 ? 'rgba(255,255,255,.025)' : 'rgba(0,0,0,.025)';
+      ctx.fillRect(c*CELL, r*CELL, CELL, CELL);
+    }
+  }
+
+  const now = Date.now();
+
+  for(let r = 0; r < ROWS; r++){
+    for(let c = 0; c < COLS; c++){
+      const v = grid[r][c];
+      if(v < 0) continue;
+      const gx = c*CELL, gy = r*CELL;
+      const idx = r*COLS+c;
+      const isSel = selected && selected.r===r && selected.c===c;
+      const isFlash = flashSet.has(idx);
+
+      if(isFlash){
+        ctx.save();
+        ctx.globalAlpha = .3 + .7*Math.abs(Math.sin(now/70));
+      }
+      drawGem(gx, gy, v, isSel, isFlash);
+      if(isFlash) ctx.restore();
+    }
+  }
+
+  // Particles
+  for(let i = particles.length-1; i >= 0; i--){
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += .18; p.life -= .038;
+    if(p.life <= 0){ particles.splice(i,1); continue; }
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.col;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, CELL*.07, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+let raf;
+function loop(){
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+
+cv.addEventListener('click', e => {
+  const rect = cv.getBoundingClientRect();
+  const scaleX = cv.width / rect.width;
+  const scaleY = cv.height / rect.height;
+  handlePick((e.clientX-rect.left)*scaleX, (e.clientY-rect.top)*scaleY);
+});
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const rect = cv.getBoundingClientRect();
+  const scaleX = cv.width / rect.width;
+  const scaleY = cv.height / rect.height;
+  const t = e.touches[0];
+  handlePick((t.clientX-rect.left)*scaleX, (t.clientY-rect.top)*scaleY);
+}, {passive:false});
+window.addEventListener('resize', () => { resize(); });
+
+startGame();
+</script>
+</body>
+</html>

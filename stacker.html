@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stacker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#050508;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  padding:10px 10px 30px;
+  user-select:none;
+  -webkit-user-select:none;
+  font-family:'Orbitron',monospace;
+  overflow-x:hidden;
+}
+h1{
+  font-family:'Cinzel Decorative',serif;
+  font-size:clamp(1rem,5vw,1.8rem);
+  background:linear-gradient(90deg,#f060a0,#60a0ff,#60ffb0);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  letter-spacing:.08em;
+  margin-bottom:6px;
+  margin-top:4px;
+}
+.scores{
+  display:flex;gap:16px;margin-bottom:8px;
+}
+.score-box{
+  text-align:center;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:3px 14px;
+}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#60ffb0;letter-spacing:.05em}
+canvas{
+  display:block;
+  border-radius:6px;
+  box-shadow:0 0 40px rgba(96,160,255,.2),0 0 2px rgba(96,160,255,.4);
+  cursor:pointer;
+  touch-action:none;
+}
+.hint{
+  font-size:.55rem;color:rgba(255,255,255,.18);
+  margin-top:6px;letter-spacing:.1em;text-transform:uppercase;
+  text-align:center;
+}
+#overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(6px);
+  z-index:100;align-items:center;justify-content:center;
+}
+#overlay.show{display:flex}
+.ov-box{
+  background:linear-gradient(145deg,#0a0a18,#050508);
+  border:2px solid #60a0ff;border-radius:14px;
+  padding:28px 24px;text-align:center;max-width:260px;width:88%;
+  box-shadow:0 0 60px rgba(96,160,255,.3);
+}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.4rem;color:#f060a0;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.6rem;color:#60ffb0;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{
+  background:linear-gradient(135deg,#1a2060,#0a1030);
+  border:1px solid #60a0ff;border-radius:8px;
+  color:#60a0ff;font-family:'Orbitron',monospace;
+  font-size:.8rem;font-weight:700;padding:11px 28px;
+  cursor:pointer;letter-spacing:.08em;transition:transform .15s;
+}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>STACKER</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Level</div><div class="score-val" id="el-level">1</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Tap / Space to stop the block</div>
+
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Keep practicing!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+let W, H, BW, BH, BOARD_X, BOARD_Y, startingW, blockH;
+
+function resize(){
+  const avail = Math.min(window.innerWidth - 20, 300);
+  W = avail;
+  H = Math.round(W * 1.8);
+  BW = Math.round(W * 0.86); // board width
+  BH = H - 20;
+  BOARD_X = Math.round((W - BW) / 2);
+  BOARD_Y = 10;
+  startingW = Math.round(BW * 0.62);
+  blockH = Math.round(H / 26);
+  cv.width = W; cv.height = H;
+}
+
+// Hue per row-group
+const HUE_STEPS = [280, 220, 180, 140, 60, 30, 0, 320, 260, 200];
+
+let stack = []; // {x, y, w, hue}
+let falling = []; // cut-off pieces that fall {x, y, w, vy, hue}
+let moveX, moveW, moveDir, moveSpeed;
+let score, level, best;
+let gameState; // 'playing' | 'gameover' | 'placed' (brief pause after placement)
+let placedTimer = 0;
+let perfectFlash = 0;
+let flashMsg = '';
+let raf;
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  stack = [];
+  falling = [];
+  score = 0; level = 1;
+  best = +(localStorage.getItem('stacker_best')||0);
+  gameState = 'playing';
+  perfectFlash = 0;
+
+  // Ground block
+  const groundY = BOARD_Y + BH - blockH;
+  stack.push({x: BOARD_X, y: groundY, w: BW, hue: HUE_STEPS[0]});
+  startMovingBlock();
+
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+function stackTop(){ return stack[stack.length-1]; }
+
+function startMovingBlock(){
+  const prev = stackTop();
+  moveW = prev.w;
+  moveX = BOARD_X;
+  moveDir = 1;
+  moveSpeed = Math.min(2.5 + level * 0.22, 8.5);
+}
+
+function blockY(){
+  const idx = stack.length; // 1-based height above ground
+  return BOARD_Y + BH - blockH * (idx + 1);
+}
+
+function stop(){
+  if(gameState !== 'playing') return;
+
+  const prev = stackTop();
+  const curX = moveX;
+  const curW = moveW;
+  const prevX = prev.x;
+  const prevW = prev.w;
+
+  // Overlap
+  const overlapL = Math.max(curX, prevX);
+  const overlapR = Math.min(curX + curW, prevX + prevW);
+  const overlap = overlapR - overlapL;
+
+  if(overlap <= 2){
+    // No overlap - game over
+    // Drop the block entirely as a falling piece
+    falling.push({x: curX, y: blockY(), w: curW, vy: 0, hue: getHue()});
+    gameOver();
+    return;
+  }
+
+  // Perfect check
+  const isPerfect = Math.abs(curX - prevX) <= 2 && Math.abs((curX+curW) - (prevX+prevW)) <= 2;
+
+  // Cut-off left piece
+  if(curX < overlapL){
+    falling.push({x: curX, y: blockY(), w: overlapL - curX, vy: -1, hue: getHue(), dir: -1});
+  }
+  // Cut-off right piece
+  if(curX + curW > overlapR){
+    falling.push({x: overlapR, y: blockY(), w: (curX+curW) - overlapR, vy: -1, hue: getHue(), dir: 1});
+  }
+
+  // Place block
+  const newH = getHue();
+  stack.push({x: overlapL, y: blockY(), w: overlap, hue: newH});
+
+  // Score
+  const pts = isPerfect ? 200 : Math.round(50 + overlap / prev.w * 100);
+  score += pts;
+  level++;
+
+  if(isPerfect){
+    perfectFlash = 60;
+    flashMsg = 'PERFECT!';
+  } else if(overlap / prev.w > 0.9){
+    flashMsg = 'GREAT!';
+    perfectFlash = 40;
+  } else {
+    flashMsg = '';
+    perfectFlash = 0;
+  }
+
+  updateHUD();
+
+  // Check if off the top
+  if(blockY() < BOARD_Y){
+    score += 500; // win bonus
+    gameOver(true);
+    return;
+  }
+
+  gameState = 'placed';
+  placedTimer = 10;
+  startMovingBlock();
+  setTimeout(()=>{ gameState='playing'; }, 150);
+}
+
+function getHue(){ return HUE_STEPS[Math.min(level-1,9) % HUE_STEPS.length]; }
+
+function gameOver(won=false){
+  gameState = 'gameover';
+  if(score > best){ best = score; localStorage.setItem('stacker_best',best); }
+  setTimeout(()=>{
+    document.getElementById('ov-title').textContent = won ? 'YOU WIN!' : 'GAME OVER';
+    document.getElementById('ov-score').textContent = score;
+    document.getElementById('ov-msg').textContent =
+      won ? 'You reached the top!' :
+      score > 500 ? 'Impressive stacking!' : 'Try to stack higher!';
+    document.getElementById('overlay').classList.add('show');
+  }, 600);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent = score;
+  document.getElementById('el-level').textContent = level;
+  document.getElementById('el-best').textContent = best;
+}
+
+// ==== DRAWING ====
+function blockColor(hue, alpha=1){
+  return `hsla(${hue},80%,62%,${alpha})`;
+}
+function blockGlow(hue){ return `hsla(${hue},100%,70%,0.6)`; }
+
+function drawBlock(x, y, w, hue, glow=false){
+  if(glow){
+    ctx.shadowColor = blockGlow(hue);
+    ctx.shadowBlur = 12;
+  }
+  // Main fill
+  const grad = ctx.createLinearGradient(x,y,x,y+blockH);
+  grad.addColorStop(0, blockColor(hue, 1));
+  grad.addColorStop(1, blockColor(hue-20, 0.85));
+  ctx.fillStyle = grad;
+  ctx.fillRect(x+1, y+1, w-2, blockH-2);
+
+  // Shine
+  ctx.fillStyle = `rgba(255,255,255,.18)`;
+  ctx.fillRect(x+1, y+1, w-2, Math.round(blockH*0.35));
+
+  // Edge
+  ctx.strokeStyle = blockColor(hue+20, 0.5);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x+1, y+1, w-2, blockH-2);
+
+  if(glow) ctx.shadowBlur = 0;
+}
+
+function loop(){
+  raf = requestAnimationFrame(loop);
+
+  // Update
+  if(gameState === 'playing'){
+    moveX += moveDir * moveSpeed;
+    if(moveX + moveW > BOARD_X + BW){ moveX = BOARD_X + BW - moveW; moveDir = -1; }
+    if(moveX < BOARD_X){ moveX = BOARD_X; moveDir = 1; }
+  }
+
+  // Update falling pieces
+  falling.forEach(f=>{ f.vy += 0.45; f.y += f.vy; if(f.dir) f.x += f.dir * 2; });
+  falling = falling.filter(f => f.y < H + 60);
+
+  if(perfectFlash > 0) perfectFlash--;
+
+  // Draw
+  // Background
+  ctx.fillStyle = '#050508';
+  ctx.fillRect(0, 0, W, H);
+
+  // Board bg
+  ctx.fillStyle = 'rgba(255,255,255,.025)';
+  ctx.fillRect(BOARD_X, BOARD_Y, BW, BH);
+
+  // Grid lines (subtle)
+  ctx.strokeStyle = 'rgba(255,255,255,.04)';
+  ctx.lineWidth = 1;
+  for(let y=BOARD_Y;y<BOARD_Y+BH;y+=blockH){ ctx.beginPath();ctx.moveTo(BOARD_X,y);ctx.lineTo(BOARD_X+BW,y);ctx.stroke(); }
+
+  // Board border
+  ctx.strokeStyle = 'rgba(96,160,255,.2)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(BOARD_X, BOARD_Y, BW, BH);
+
+  // Falling pieces
+  falling.forEach(f=>{ ctx.globalAlpha=Math.max(0.1,(H-f.y)/H); drawBlock(f.x,f.y,f.w,f.hue); ctx.globalAlpha=1; });
+
+  // Stacked blocks
+  stack.forEach((b,i)=>{
+    const isTop = i === stack.length-1;
+    drawBlock(b.x, b.y, b.w, b.hue, isTop);
+  });
+
+  // Moving block (if playing or briefly after placing)
+  if(gameState === 'playing' || gameState === 'placed'){
+    const my = blockY();
+    if(my >= BOARD_Y - blockH){
+      drawBlock(moveX, my, moveW, getHue(), true);
+    }
+  }
+
+  // Guidance line from top of stack
+  if(gameState === 'playing' && stack.length > 1){
+    const top = stackTop();
+    ctx.strokeStyle = 'rgba(255,255,255,.07)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,6]);
+    ctx.beginPath(); ctx.moveTo(top.x,top.y); ctx.lineTo(top.x,BOARD_Y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(top.x+top.w,top.y); ctx.lineTo(top.x+top.w,BOARD_Y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Perfect flash
+  if(perfectFlash > 0){
+    const a = perfectFlash / 60;
+    ctx.fillStyle = `rgba(255,255,255,${a*0.12})`;
+    ctx.fillRect(BOARD_X, BOARD_Y, BW, BH);
+    ctx.fillStyle = `rgba(96,255,160,${a})`;
+    ctx.font = `bold ${Math.round(BW*0.1)}px 'Orbitron',monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor='#60ffb0'; ctx.shadowBlur=20;
+    ctx.fillText(flashMsg, W/2, H*0.4);
+    ctx.shadowBlur=0;
+  }
+
+  // Level progress bar (right side)
+  const barH = BH;
+  const barW = 5;
+  const barX = BOARD_X + BW + 5;
+  ctx.fillStyle = 'rgba(255,255,255,.04)';
+  ctx.fillRect(barX, BOARD_Y, barW, barH);
+  const fill = Math.min(level/26, 1);
+  const fg = ctx.createLinearGradient(0,BOARD_Y+barH,0,BOARD_Y);
+  fg.addColorStop(0,'#f060a0'); fg.addColorStop(0.5,'#60a0ff'); fg.addColorStop(1,'#60ffb0');
+  ctx.fillStyle = fg;
+  ctx.fillRect(barX, BOARD_Y + barH*(1-fill), barW, barH*fill);
+}
+
+// Controls
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='ArrowDown'){
+    e.preventDefault(); stop();
+  }
+  if(e.code==='Enter'&&gameState==='gameover') newGame();
+});
+cv.addEventListener('click', stop);
+cv.addEventListener('touchstart', e=>{e.preventDefault(); stop();},{passive:false});
+
+window.addEventListener('resize', ()=>{ resize(); /* quick resize - keep state */ });
+
+newGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tower Stack</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#ff9f43,#ee5a24,#ff6b81);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:5px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,159,67,.15);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#ff9f43;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(255,159,67,.2);cursor:pointer;touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #ff9f43;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(255,159,67,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ff9f43;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#2a1a00,#1a1000);border:1px solid #ff9f43;border-radius:8px;color:#ff9f43;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>TOWER STACK</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Floor</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Tap / Space to drop the block</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">FALLEN!</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Build higher!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H;
+
+const BLOCK_H = 22;
+const BASE_W_FRAC = 0.65;
+const PERSP_SHRINK = 0.025;
+const MAX_FLOORS = 20;
+
+function resize(){
+  const avail = Math.min(window.innerWidth-20, 320);
+  W = avail; H = Math.round(W*1.8);
+  cv.width = W; cv.height = H;
+}
+
+const HUES = [15,30,45,60,120,180,210,240,270,300,330,0];
+
+let stack, moving, fallingPieces, flashEffects, perfectFlash;
+let score, best, gameState, raf;
+let moveX, moveDir, moveSpeed;
+let cameraY = 0;
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  score = 0; best = +(localStorage.getItem('towerstack_best')||0);
+  gameState = 'playing';
+  cameraY = 0;
+  fallingPieces = []; flashEffects = []; perfectFlash = 0;
+
+  const baseW = Math.round(W * BASE_W_FRAC);
+  const baseX = Math.round((W - baseW) / 2);
+  const baseY = H - BLOCK_H - 20;
+
+  stack = [{x:baseX, y:baseY, w:baseW, hue:HUES[0]}];
+  startMoving();
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+function startMoving(){
+  const prev = stack[stack.length-1];
+  moveX = 0;
+  moveDir = 1;
+  moveSpeed = Math.min(2.5 + score*0.18, 7);
+}
+
+function topBlockY(){
+  return stack[stack.length-1].y - BLOCK_H;
+}
+
+function drop(){
+  if(gameState!=='playing') return;
+
+  const prev = stack[stack.length-1];
+  const curX = moveX;
+  const curW = prev.w;
+  const prevX = prev.x;
+  const prevW = prev.w;
+
+  const overlapL = Math.max(curX, prevX);
+  const overlapR = Math.min(curX+curW, prevX+prevW);
+  const overlap = overlapR - overlapL;
+
+  if(overlap<=2){
+    // Fell off
+    fallingPieces.push({x:curX,y:topBlockY(),w:curW,vy:0,hue:HUES[score%HUES.length],dir:curX>prevX?1:-1});
+    gameState='dead';
+    if(score>best){best=score;localStorage.setItem('towerstack_best',best);}
+    setTimeout(()=>{
+      document.getElementById('ov-title').textContent='FALLEN!';
+      document.getElementById('ov-score').textContent=score;
+      document.getElementById('ov-msg').textContent=score>15?'Tower Master!':score>8?'Nice stack!':'Build higher!';
+      document.getElementById('overlay').classList.add('show');
+    },700);
+    updateHUD();
+    return;
+  }
+
+  const perfect = Math.abs(curX-prevX)<=2 && Math.abs((curX+curW)-(prevX+prevW))<=2;
+
+  if(curX < overlapL){
+    fallingPieces.push({x:curX,y:topBlockY(),w:overlapL-curX,vy:-1,hue:HUES[score%HUES.length],dir:-1});
+  }
+  if(curX+curW > overlapR){
+    fallingPieces.push({x:overlapR,y:topBlockY(),w:(curX+curW)-overlapR,vy:-1,hue:HUES[score%HUES.length],dir:1});
+  }
+
+  score++;
+  stack.push({x:overlapL, y:topBlockY(), w:overlap, hue:HUES[score%HUES.length]});
+
+  if(perfect){
+    perfectFlash=50;
+    flashEffects.push({y:topBlockY(),life:1,text:'PERFECT!'});
+  }
+
+  // Camera scroll
+  if(stack.length > 8){
+    cameraY = Math.max(0, (stack.length-8)*BLOCK_H);
+  }
+
+  updateHUD();
+  startMoving();
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent=score;
+  document.getElementById('el-best').textContent=best;
+}
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+
+  if(gameState==='playing'){
+    const prev = stack[stack.length-1];
+    const boardW = W;
+    moveX += moveDir * moveSpeed;
+    if(moveX+prev.w > boardW-5){moveX=boardW-5-prev.w;moveDir=-1;}
+    if(moveX < 5){moveX=5;moveDir=1;}
+  }
+
+  fallingPieces.forEach(f=>{f.vy+=0.5;f.y+=f.vy;f.x+=f.dir*2;});
+  fallingPieces=fallingPieces.filter(f=>f.y<H+100);
+
+  if(perfectFlash>0) perfectFlash--;
+
+  flashEffects.forEach(f=>{f.life-=0.03;f.y-=0.5;});
+  flashEffects=flashEffects.filter(f=>f.life>0);
+
+  draw();
+}
+
+function drawBlock3D(x, y, w, hue, floor){
+  if(w<=0) return;
+  const shrink = floor*PERSP_SHRINK;
+  const depth = Math.max(8-floor*0.3,2);
+  const slant = Math.round(floor*1.5);
+
+  // 3D side face (right)
+  ctx.fillStyle=`hsla(${hue},60%,30%,.9)`;
+  ctx.beginPath();
+  ctx.moveTo(x+w, y);
+  ctx.lineTo(x+w+depth, y-depth);
+  ctx.lineTo(x+w+depth, y+BLOCK_H-depth);
+  ctx.lineTo(x+w, y+BLOCK_H);
+  ctx.closePath();
+  ctx.fill();
+
+  // 3D top face
+  ctx.fillStyle=`hsla(${hue},70%,65%,.9)`;
+  ctx.beginPath();
+  ctx.moveTo(x,y);
+  ctx.lineTo(x+w,y);
+  ctx.lineTo(x+w+depth,y-depth);
+  ctx.lineTo(x+depth,y-depth);
+  ctx.closePath();
+  ctx.fill();
+
+  // Front face
+  const grad=ctx.createLinearGradient(x,y,x,y+BLOCK_H);
+  grad.addColorStop(0,`hsla(${hue},80%,55%,.95)`);
+  grad.addColorStop(1,`hsla(${hue},70%,38%,.9)`);
+  ctx.fillStyle=grad;
+  ctx.fillRect(x,y,w,BLOCK_H);
+
+  // Shine
+  ctx.fillStyle='rgba(255,255,255,.12)';
+  ctx.fillRect(x+1,y+1,w-2,Math.round(BLOCK_H*0.4));
+
+  // Glow edge
+  ctx.shadowColor=`hsl(${hue},100%,60%)`;ctx.shadowBlur=6;
+  ctx.strokeStyle=`hsla(${hue},100%,70%,.5)`;
+  ctx.lineWidth=1;
+  ctx.strokeRect(x,y,w,BLOCK_H);
+  ctx.shadowBlur=0;
+}
+
+function draw(){
+  ctx.fillStyle='#050508';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.025)';ctx.lineWidth=1;
+  for(let y=0;y<H;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // Stack
+  stack.forEach((b,i)=>{
+    const dy = b.y - cameraY;
+    if(dy<-BLOCK_H||dy>H+BLOCK_H) return;
+    drawBlock3D(b.x,dy,b.w,b.hue,i);
+  });
+
+  // Moving block
+  if(gameState==='playing'){
+    const prev=stack[stack.length-1];
+    const dy=topBlockY()-cameraY;
+    if(dy>-BLOCK_H&&dy<H+BLOCK_H){
+      drawBlock3D(moveX,dy,prev.w,HUES[score%HUES.length],stack.length);
+    }
+  }
+
+  // Falling pieces
+  fallingPieces.forEach(f=>{
+    ctx.globalAlpha=Math.max(0,(H-f.y)/H);
+    drawBlock3D(f.x,f.y,f.w,f.hue,0);
+    ctx.globalAlpha=1;
+  });
+
+  // Perfect flash
+  if(perfectFlash>0){
+    const a=perfectFlash/50;
+    ctx.fillStyle=`rgba(255,220,100,${a*0.15})`;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // Flash text
+  flashEffects.forEach(f=>{
+    ctx.globalAlpha=f.life;
+    ctx.fillStyle='#ffdd44';
+    ctx.shadowColor='#ffdd44';ctx.shadowBlur=16;
+    ctx.font=`bold ${Math.round(W*0.08)}px 'Orbitron',monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(f.text,W/2,f.y-cameraY-20);
+    ctx.shadowBlur=0;
+  });
+  ctx.globalAlpha=1;
+}
+
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowDown'){e.preventDefault();drop();}});
+cv.addEventListener('click',drop);
+cv.addEventListener('touchstart',e=>{e.preventDefault();drop();},{passive:false});
+window.addEventListener('resize',resize);
+newGame();
+</script>
+</body>
+</html>

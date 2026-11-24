@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dark Realm</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#cc00ff,#ff003c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:5px;margin-top:4px;}
+.scores{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;justify-content:center;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(200,0,255,.18);border-radius:6px;padding:3px 12px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#cc00ff;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(200,0,255,.18);cursor:crosshair;touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#0a0010,#050508);border:2px solid #cc00ff;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(200,0,255,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#cc00ff;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#2a0040,#100018);border:1px solid #cc00ff;border-radius:8px;color:#cc00ff;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>DARK REALM</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Lives</div><div class="score-val" id="el-lives">3</div></div>
+  <div class="score-box"><div class="score-label">Time</div><div class="score-val" id="el-time">60</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Space / Tap to fire at nearest enemy</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">The shadows won...</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W,H;
+let player,enemies,bullets,particles,fog;
+let score,lives,best,timeLeft,gameState,raf,timerInt;
+
+function resize(){
+  const a=Math.min(window.innerWidth-20,380);
+  W=a; H=Math.round(a*1.5);
+  cv.width=W; cv.height=H;
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  player={x:W/2,y:H/2,r:12,angle:0,invincible:0,trail:[]};
+  enemies=[]; bullets=[]; particles=[];
+  fog=Array.from({length:20},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*60+30,a:Math.random()*.08+.02,dx:(Math.random()-.5)*.3,dy:(Math.random()-.5)*.3}));
+  score=0; lives=3; timeLeft=60;
+  best=+(localStorage.getItem('drealm_best')||0);
+  gameState='playing';
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    if(gameState!=='playing')return;
+    timeLeft--;
+    document.getElementById('el-time').textContent=timeLeft;
+    if(timeLeft<=0){endGame(true);}
+  },1000);
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent=score;
+  document.getElementById('el-lives').textContent=lives;
+  document.getElementById('el-best').textContent=best;
+}
+
+function spawnEnemy(){
+  const side=Math.floor(Math.random()*4);
+  let x,y;
+  if(side===0){x=Math.random()*W;y=-20;}
+  else if(side===1){x=W+20;y=Math.random()*H;}
+  else if(side===2){x=Math.random()*W;y=H+20;}
+  else{x=-20;y=Math.random()*H;}
+  const hue=270+Math.random()*60;
+  enemies.push({x,y,r:8+Math.random()*6,hp:2,hue,vx:0,vy:0,hit:0});
+}
+
+function nearest(){
+  if(!enemies.length)return null;
+  let best=null,bd=999999;
+  enemies.forEach(e=>{
+    const d=Math.hypot(e.x-player.x,e.y-player.y);
+    if(d<bd){bd=d;best=e;}
+  });
+  return best;
+}
+
+function fire(){
+  if(gameState!=='playing')return;
+  const t=nearest();
+  const ang=t?Math.atan2(t.y-player.y,t.x-player.x):player.angle;
+  for(let i=-1;i<=1;i++){
+    const a=ang+i*0.15;
+    bullets.push({x:player.x,y:player.y,vx:Math.cos(a)*9,vy:Math.sin(a)*9,life:1});
+  }
+  spawnParticles(player.x,player.y,'#cc00ff',4);
+}
+
+function spawnParticles(x,y,col,n=8){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=Math.random()*3+1;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,col,r:Math.random()*3+1});
+  }
+}
+
+function endGame(survived=false){
+  gameState='over';
+  clearInterval(timerInt);
+  if(score>best){best=score;localStorage.setItem('drealm_best',best);updateHUD();}
+  setTimeout(()=>{
+    document.getElementById('ov-title').textContent=survived?'SURVIVED!':'GAME OVER';
+    document.getElementById('ov-score').textContent=score;
+    document.getElementById('ov-msg').textContent=survived?'You held the line!':score>20?'Warrior!':'The shadows won...';
+    document.getElementById('overlay').classList.add('show');
+  },600);
+}
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+  if(gameState==='playing'){
+    // Move player toward cursor/touch (soft auto-move via WASD if desired)
+    // Enemies AI
+    const spawnRate=Math.max(40,90-score*2);
+    if(!loop._et)loop._et=0;
+    loop._et++;
+    if(loop._et%spawnRate===0)spawnEnemy();
+
+    enemies.forEach(e=>{
+      const dx=player.x-e.x,dy=player.y-e.y,dist=Math.hypot(dx,dy);
+      const spd=0.8+score*0.015;
+      e.vx=dx/dist*spd; e.vy=dy/dist*spd;
+      e.x+=e.vx; e.y+=e.vy;
+      if(e.hit>0)e.hit--;
+      // Check player collision
+      if(player.invincible===0&&Math.hypot(e.x-player.x,e.y-player.y)<player.r+e.r){
+        lives--;
+        player.invincible=90;
+        spawnParticles(player.x,player.y,'#ff003c',12);
+        document.getElementById('el-lives').textContent=lives;
+        if(lives<=0)endGame(false);
+      }
+    });
+
+    // Bullets
+    bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life-=0.015;});
+    bullets=bullets.filter(b=>b.life>0&&b.x>-10&&b.x<W+10&&b.y>-10&&b.y<H+10);
+
+    // Bullet-enemy collision
+    bullets.forEach(b=>{
+      enemies.forEach(e=>{
+        if(Math.hypot(b.x-e.x,b.y-e.y)<e.r+5){
+          b.life=0; e.hp--;
+          e.hit=8;
+          spawnParticles(e.x,e.y,`hsl(${e.hue},100%,70%)`,4);
+          if(e.hp<=0){
+            score++;
+            spawnParticles(e.x,e.y,'#ffee44',10);
+            updateHUD();
+            e.hp=-99;
+          }
+        }
+      });
+    });
+    enemies=enemies.filter(e=>e.hp>-50);
+
+    if(player.invincible>0)player.invincible--;
+
+    // Trail
+    player.trail.unshift({x:player.x,y:player.y});
+    if(player.trail.length>8)player.trail.pop();
+
+    // Fog
+    fog.forEach(f=>{f.x+=f.dx;f.y+=f.dy;if(f.x<-80)f.x=W+80;if(f.x>W+80)f.x=-80;if(f.y<-80)f.y=H+80;if(f.y>H+80)f.y=-80;});
+  }
+
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.08;p.life-=0.02;});
+  particles=particles.filter(p=>p.life>0);
+
+  // Draw
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  // Fog
+  fog.forEach(f=>{
+    const g=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r);
+    g.addColorStop(0,`rgba(80,0,120,${f.a})`);
+    g.addColorStop(1,'rgba(80,0,120,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);ctx.fill();
+  });
+  // Grid
+  ctx.strokeStyle='rgba(200,0,255,.04)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // Trail
+  player.trail.forEach((t,i)=>{
+    ctx.globalAlpha=(1-i/player.trail.length)*0.3;
+    ctx.fillStyle='#cc00ff';
+    ctx.beginPath();ctx.arc(t.x,t.y,player.r*(1-i/player.trail.length),0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // Enemies
+  enemies.forEach(e=>{
+    ctx.shadowColor=`hsl(${e.hue},100%,60%)`;ctx.shadowBlur=12;
+    ctx.fillStyle=e.hit>0?'#ffffff':`hsl(${e.hue},80%,40%)`;
+    ctx.beginPath();
+    // Shadow creature shape
+    ctx.moveTo(e.x,e.y-e.r);
+    for(let i=0;i<5;i++){
+      const a=(-Math.PI/2)+i*Math.PI*2/5;
+      const spike=e.r*(1+Math.random()*0.3);
+      ctx.lineTo(e.x+Math.cos(a)*spike,e.y+Math.sin(a)*spike);
+    }
+    ctx.closePath();ctx.fill();
+    ctx.shadowBlur=0;
+  });
+
+  // Bullets
+  bullets.forEach(b=>{
+    ctx.shadowColor='#ff003c';ctx.shadowBlur=8;
+    ctx.fillStyle=`rgba(255,0,60,${b.life})`;
+    ctx.beginPath();ctx.arc(b.x,b.y,3,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  });
+
+  // Particles
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.life;ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  });ctx.globalAlpha=1;
+
+  // Player
+  const pFlicker=player.invincible>0&&Math.floor(player.invincible/5)%2===0;
+  if(!pFlicker){
+    ctx.shadowColor='#cc00ff';ctx.shadowBlur=20;
+    ctx.strokeStyle='#cc00ff';ctx.lineWidth=2;
+    // Warrior circle
+    ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+    const pg=ctx.createRadialGradient(player.x,player.y,2,player.x,player.y,player.r);
+    pg.addColorStop(0,'rgba(200,0,255,.8)');pg.addColorStop(1,'rgba(200,0,255,.1)');
+    ctx.fillStyle=pg;ctx.fill();ctx.stroke();
+    // Sword trail
+    ctx.beginPath();ctx.moveTo(player.x,player.y);
+    ctx.lineTo(player.x+Math.cos(player.angle)*player.r*2.5,player.y+Math.sin(player.angle)*player.r*2.5);
+    ctx.strokeStyle='#ff9900';ctx.lineWidth=3;ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+
+  if(gameState==='playing'&&timeLeft<=10){
+    ctx.fillStyle=`rgba(255,0,60,${0.3+Math.sin(Date.now()/150)*0.2})`;
+    ctx.font=`bold ${Math.round(W*.06)}px 'Orbitron',monospace`;
+    ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText('SURVIVE!',W/2,10);
+  }
+}
+
+// Controls
+const keys={};
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(e.code==='Space'){e.preventDefault();fire();}
+});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+
+// Touch
+let touchStart=null;
+cv.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY};fire();},{passive:false});
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  const r=cv.getBoundingClientRect();
+  player.x=t.clientX-r.left;player.y=t.clientY-r.top;
+  player.x=Math.max(player.r,Math.min(W-player.r,player.x));
+  player.y=Math.max(player.r,Math.min(H-player.r,player.y));
+},{passive:false});
+cv.addEventListener('click',e=>{
+  const r=cv.getBoundingClientRect();
+  player.x=e.clientX-r.left;player.y=e.clientY-r.top;
+  fire();
+});
+document.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
+  player.x=e.clientX-r.left;player.y=e.clientY-r.top;
+  player.angle=Math.atan2(e.clientY-r.top-player.y,e.clientX-r.left-player.x);
+});
+
+// WASD
+setInterval(()=>{
+  if(gameState!=='playing')return;
+  const spd=3;
+  if(keys['KeyW']||keys['ArrowUp'])player.y=Math.max(player.r,player.y-spd);
+  if(keys['KeyS']||keys['ArrowDown'])player.y=Math.min(H-player.r,player.y+spd);
+  if(keys['KeyA']||keys['ArrowLeft'])player.x=Math.max(player.r,player.x-spd);
+  if(keys['KeyD']||keys['ArrowRight'])player.x=Math.min(W-player.r,player.x+spd);
+},16);
+
+window.addEventListener('resize',()=>resize());
+newGame();
+</script>
+</body>
+</html>

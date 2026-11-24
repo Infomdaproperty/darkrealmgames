@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Memory Match</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#aa44ff,#ff44aa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(170,68,255,.12);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#aa44ff;letter-spacing:.05em}
+#grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:4px;}
+.card{width:var(--cs);height:var(--cs);perspective:600px;cursor:pointer;}
+.card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .35s cubic-bezier(.4,0,.2,1);}
+.card.flipped .card-inner,.card.matched .card-inner{transform:rotateY(180deg);}
+.card-front,.card-back{position:absolute;inset:0;border-radius:8px;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;}
+.card-back{background:linear-gradient(135deg,#1a0a2e,#0a0518);border:1px solid rgba(170,68,255,.3);font-size:1.4rem;}
+.card-back::after{content:'?';font-family:'Orbitron',monospace;color:rgba(170,68,255,.4);font-size:var(--qs);}
+.card-front{background:linear-gradient(135deg,#2a0a4e,#1a0530);border:1px solid rgba(170,68,255,.6);transform:rotateY(180deg);font-size:var(--es);}
+.card.matched .card-front{border-color:#00ff88;box-shadow:0 0 14px rgba(0,255,136,.4);}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #aa44ff;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(170,68,255,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#aa44ff;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.5rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#180028,#0c0018);border:1px solid #aa44ff;border-radius:8px;color:#aa44ff;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>MEMORY MATCH</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Moves</div><div class="score-val" id="el-moves">0</div></div>
+  <div class="score-box"><div class="score-label">Time</div><div class="score-val" id="el-time">0s</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">-</div></div>
+</div>
+<div id="grid"></div>
+<div class="hint">Find all 8 matching pairs</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2>YOU WIN!</h2>
+    <div class="ov-score" id="ov-score">16 moves, 42s</div>
+    <p id="ov-msg">Memory master!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const EMOJIS = ['🌟','⚡','🎮','🔥','💎','🌈','🎯','🚀'];
+const gridEl = document.getElementById('grid');
+let cards, flipped, matched, moves, startTime, timerEl, timerId, lockBoard;
+
+function setSize(){
+  const avail = Math.min(window.innerWidth-40, 360);
+  const cs = Math.floor((avail-3*8)/4);
+  document.documentElement.style.setProperty('--cs', cs+'px');
+  document.documentElement.style.setProperty('--es', Math.round(cs*0.45)+'px');
+  document.documentElement.style.setProperty('--qs', Math.round(cs*0.3)+'px');
+}
+
+function shuffle(arr){ return arr.sort(()=>Math.random()-.5); }
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  clearInterval(timerId);
+  setSize();
+  flipped=[]; matched=0; moves=0; lockBoard=false;
+  startTime=null;
+  document.getElementById('el-moves').textContent='0';
+  document.getElementById('el-time').textContent='0s';
+  const pairs=[...EMOJIS,...EMOJIS];
+  cards=shuffle(pairs).map((emoji,i)=>({emoji,id:i,face:false,done:false}));
+  renderGrid();
+}
+
+function renderGrid(){
+  gridEl.innerHTML='';
+  cards.forEach(c=>{
+    const div=document.createElement('div');
+    div.className='card'+(c.face?' flipped':'')+(c.done?' matched':'');
+    div.innerHTML=`<div class="card-inner"><div class="card-back"></div><div class="card-front">${c.emoji}</div></div>`;
+    div.addEventListener('click',()=>flip(c.id));
+    gridEl.appendChild(div);
+  });
+}
+
+function flip(id){
+  if(lockBoard) return;
+  const c=cards[id];
+  if(c.face||c.done) return;
+  if(!startTime){ startTime=Date.now(); timerEl=setInterval(tick,500); }
+  c.face=true;
+  flipped.push(id);
+  updateCard(id);
+  if(flipped.length===2){
+    moves++;
+    document.getElementById('el-moves').textContent=moves;
+    lockBoard=true;
+    setTimeout(check,700);
+  }
+}
+
+function check(){
+  const [a,b]=flipped;
+  if(cards[a].emoji===cards[b].emoji){
+    cards[a].done=true; cards[b].done=true;
+    matched+=2;
+    updateCard(a); updateCard(b);
+    if(matched===cards.length) win();
+  } else {
+    cards[a].face=false; cards[b].face=false;
+    updateCard(a); updateCard(b);
+  }
+  flipped=[]; lockBoard=false;
+}
+
+function updateCard(id){
+  const c=cards[id];
+  const el=gridEl.children[id];
+  el.className='card'+(c.face||c.done?' flipped':'')+(c.done?' matched':'');
+}
+
+function tick(){
+  if(!startTime) return;
+  document.getElementById('el-time').textContent=Math.floor((Date.now()-startTime)/1000)+'s';
+}
+
+function win(){
+  clearInterval(timerEl);
+  const t=Math.floor((Date.now()-startTime)/1000);
+  const best=localStorage.getItem('mem_best');
+  const score=`${moves} moves, ${t}s`;
+  if(!best||moves<+best.split(' ')[0]){ localStorage.setItem('mem_best',score); document.getElementById('el-best').textContent=score; }
+  else{ document.getElementById('el-best').textContent=best; }
+  setTimeout(()=>{
+    document.getElementById('ov-score').textContent=score;
+    document.getElementById('ov-msg').textContent=moves<=18?'Memory master!':moves<=25?'Nice memory!':'Keep practicing!';
+    document.getElementById('overlay').classList.add('show');
+  },400);
+}
+
+window.addEventListener('resize',()=>{ setSize(); });
+const best=localStorage.getItem('mem_best');
+if(best) document.getElementById('el-best').textContent=best;
+newGame();
+</script>
+</body>
+</html>

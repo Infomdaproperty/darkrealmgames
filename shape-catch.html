@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Shape Catch</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#00e5ff,#ff4fa0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:5px;margin-top:4px;}
+.scores{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;justify-content:center;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(0,229,255,.18);border-radius:6px;padding:3px 12px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#00e5ff;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(0,229,255,.18);touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+.ctrl-row{display:flex;gap:8px;margin-top:8px;}
+.ctrl-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#fff;font-family:'Orbitron',monospace;font-size:.65rem;padding:8px 22px;cursor:pointer;}
+.ctrl-btn:active{background:rgba(255,255,255,.18);}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060a0a,#050508);border:2px solid #00e5ff;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(0,229,255,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#00e5ff;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#001a1a,#000808);border:1px solid #00e5ff;border-radius:8px;color:#00e5ff;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>SHAPE CATCH</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Lives</div><div class="score-val" id="el-lives">3</div></div>
+  <div class="score-box"><div class="score-label">Target</div><div class="score-val" id="el-target">circle</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Catch only the target shape! Arrows or tap left/right.</div>
+<div class="ctrl-row">
+  <button class="ctrl-btn" id="btn-left">LEFT</button>
+  <button class="ctrl-btn" id="btn-right">RIGHT</button>
+</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Shape up!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W,H;
+const SHAPES=['circle','square','triangle','diamond'];
+const SHAPE_COLORS={circle:'#ff4fa0',square:'#00e5ff',triangle:'#ffd460',diamond:'#44ff88'};
+let bucket,shapes,particles;
+let score,lives,targetShape,caught,speed,best,gameState,raf;
+
+function resize(){
+  const a=Math.min(window.innerWidth-20,360);
+  W=a; H=Math.round(a*1.5);
+  cv.width=W; cv.height=H;
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  bucket={x:W/2,y:H*0.85,w:60,h:16};
+  shapes=[]; particles=[];
+  score=0; lives=3; caught=0; speed=2;
+  targetShape=SHAPES[Math.floor(Math.random()*SHAPES.length)];
+  best=+(localStorage.getItem('shapecatch_best')||0);
+  gameState='playing';
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent=score;
+  document.getElementById('el-lives').textContent=lives;
+  document.getElementById('el-target').textContent=targetShape;
+  document.getElementById('el-best').textContent=best;
+}
+
+function spawnParticles(x,y,col,n=8){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=Math.random()*5+1;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,col,r:Math.random()*4+1});
+  }
+}
+
+function spawnShape(){
+  const type=SHAPES[Math.floor(Math.random()*SHAPES.length)];
+  shapes.push({
+    x:Math.random()*(W-50)+25,
+    y:-25,
+    type,
+    size:18+Math.random()*10,
+    color:SHAPE_COLORS[type],
+    vy:speed+Math.random()*1,
+    rot:0,
+    rotV:(Math.random()-.5)*0.05
+  });
+}
+
+function drawShape(x,y,type,size,color,alpha){
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);
+  ctx.shadowColor=color;ctx.shadowBlur=10;
+  ctx.fillStyle=color;ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1.5;
+  ctx.beginPath();
+  if(type==='circle'){
+    ctx.arc(0,0,size,0,Math.PI*2);
+  } else if(type==='square'){
+    ctx.rect(-size,-size,size*2,size*2);
+  } else if(type==='triangle'){
+    ctx.moveTo(0,-size);ctx.lineTo(size,size);ctx.lineTo(-size,size);ctx.closePath();
+  } else if(type==='diamond'){
+    ctx.moveTo(0,-size*1.2);ctx.lineTo(size,0);ctx.lineTo(0,size*1.2);ctx.lineTo(-size,0);ctx.closePath();
+  }
+  ctx.fill();ctx.stroke();
+  ctx.shadowBlur=0;ctx.restore();
+}
+
+const keys={};
+document.addEventListener('keydown',e=>{keys[e.code]=true;});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+function setupCtrl(id,code){
+  const b=document.getElementById(id);
+  b.addEventListener('touchstart',e=>{e.preventDefault();keys[code]=true;},{passive:false});
+  b.addEventListener('touchend',e=>{e.preventDefault();keys[code]=false;},{passive:false});
+  b.addEventListener('mousedown',()=>keys[code]=true);
+  b.addEventListener('mouseup',()=>keys[code]=false);
+}
+setupCtrl('btn-left','ArrowLeft');
+setupCtrl('btn-right','ArrowRight');
+
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0],r=cv.getBoundingClientRect();
+  bucket.x=t.clientX-r.left;
+  bucket.x=Math.max(bucket.w/2,Math.min(W-bucket.w/2,bucket.x));
+},{passive:false});
+
+let spawnTimer=0;
+function loop(){
+  raf=requestAnimationFrame(loop);
+  if(gameState==='playing'){
+    spawnTimer++;
+    if(spawnTimer%40===0)spawnShape();
+    const spd=5;
+    if(keys['ArrowLeft']||keys['KeyA'])bucket.x=Math.max(bucket.w/2,bucket.x-spd);
+    if(keys['ArrowRight']||keys['KeyD'])bucket.x=Math.min(W-bucket.w/2,bucket.x+spd);
+    shapes.forEach(s=>{s.y+=s.vy;s.rot+=s.rotV;});
+    // Catch check
+    shapes.forEach((s,i)=>{
+      const bTop=bucket.y-bucket.h/2;
+      if(s.y+s.size>=bTop&&s.y-s.size<bTop+bucket.h&&Math.abs(s.x-bucket.x)<bucket.w/2+s.size*0.5){
+        if(s.type===targetShape){
+          score++;caught++;
+          spawnParticles(s.x,bTop,s.color,10);
+          if(caught%10===0){targetShape=SHAPES[Math.floor(Math.random()*SHAPES.length)];speed+=0.3;}
+          if(score>best){best=score;localStorage.setItem('shapecatch_best',best);}
+        } else {
+          lives--;
+          spawnParticles(s.x,bTop,'#ff4444',8);
+          if(lives<=0){shapes.splice(i,1);endGame();return;}
+        }
+        shapes.splice(i,1);
+        updateHUD();
+      } else if(s.y>H+30){
+        shapes.splice(i,1);
+      }
+    });
+  }
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.025;});
+  particles=particles.filter(p=>p.life>0);
+
+  // Draw
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(0,229,255,.03)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // Target shape indicator
+  const col=SHAPE_COLORS[targetShape];
+  ctx.fillStyle='rgba(255,255,255,.04)';ctx.fillRect(0,0,W,46);
+  ctx.fillStyle='rgba(255,255,255,.4)';ctx.font=`bold ${Math.round(W*.025)}px 'Orbitron',monospace`;
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText('CATCH:',8,23);
+  drawShape(W*0.4,23,targetShape,12,col,1);
+  ctx.fillStyle=col;ctx.font=`bold ${Math.round(W*.03)}px 'Orbitron',monospace`;
+  ctx.textAlign='left';ctx.fillText(targetShape.toUpperCase(),W*0.4+18,23);
+
+  // Shapes
+  shapes.forEach(s=>{
+    ctx.save();ctx.translate(s.x,s.y);ctx.rotate(s.rot);ctx.translate(-s.x,-s.y);
+    drawShape(s.x,s.y,s.type,s.size,s.color,1);
+    ctx.restore();
+  });
+
+  // Particles
+  particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
+  ctx.globalAlpha=1;
+
+  // Bucket
+  ctx.shadowColor='#00e5ff';ctx.shadowBlur=14;
+  ctx.fillStyle='rgba(0,100,120,.6)';
+  ctx.fillRect(bucket.x-bucket.w/2,bucket.y-bucket.h/2,bucket.w,bucket.h);
+  ctx.strokeStyle='#00e5ff';ctx.lineWidth=2;
+  ctx.strokeRect(bucket.x-bucket.w/2,bucket.y-bucket.h/2,bucket.w,bucket.h);
+  // Bucket open top
+  ctx.strokeStyle='rgba(0,229,255,.5)';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(bucket.x-bucket.w/2-5,bucket.y-bucket.h/2);ctx.lineTo(bucket.x+bucket.w/2+5,bucket.y-bucket.h/2);ctx.stroke();
+  ctx.shadowBlur=0;
+
+  // Lives
+  for(let i=0;i<3;i++){
+    ctx.fillStyle=i<lives?'#00e5ff':'rgba(255,255,255,.1)';
+    ctx.beginPath();ctx.arc(16+i*22,H-14,6,0,Math.PI*2);ctx.fill();
+  }
+}
+
+function endGame(){
+  gameState='over';
+  setTimeout(()=>{
+    document.getElementById('ov-title').textContent='GAME OVER';
+    document.getElementById('ov-score').textContent=score;
+    document.getElementById('ov-msg').textContent=score>30?'Sharp eye!':score>10?'Getting there!':'Shape up!';
+    document.getElementById('overlay').classList.add('show');
+  },500);
+}
+
+window.addEventListener('resize',()=>resize());
+newGame();
+</script>
+</body>
+</html>

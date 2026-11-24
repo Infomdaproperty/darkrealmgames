@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stack Drop</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#ff6644,#ffaa44,#44ffaa,#44aaff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#44ffaa;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(68,255,170,.15);cursor:pointer;touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #44ffaa;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(68,255,170,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ff6644;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#003322,#001433);border:1px solid #44ffaa;border-radius:8px;color:#44ffaa;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>STACK DROP</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Left / Right to position  |  Tap to drop</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Land it on the stack!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H;
+
+const BLOCK_H = 22;
+const BOARD_W_FRAC = 0.78;
+const FALL_SPEED = 7;
+const PERFECT_THRESH = 3;
+
+let stack, fallingBlock, cameraY, particles, score, best, gameState, raf;
+let flashMsg, flashTimer;
+let keyLeft=false, keyRight=false;
+
+function resize(){
+  const avail = Math.min(window.innerWidth - 20, 300);
+  W = avail; H = Math.round(W * 1.85);
+  cv.width = W; cv.height = H;
+}
+
+function blockHue(idx){ return (idx * 42) % 360; }
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  score = 0;
+  best = +(localStorage.getItem('stackdrop_best') || 0);
+  gameState = 'playing';
+  cameraY = 0;
+  particles = [];
+  flashMsg = ''; flashTimer = 0;
+
+  const boardW = Math.round(W * BOARD_W_FRAC);
+  const boardX = Math.round((W - boardW) / 2);
+
+  // Ground block
+  stack = [{
+    x: boardX, y: H - BLOCK_H - 20,
+    w: boardW, h: BLOCK_H,
+    hue: blockHue(0)
+  }];
+
+  spawnFalling();
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+function spawnFalling(){
+  const boardW = Math.round(W * BOARD_W_FRAC);
+  const boardX = Math.round((W - boardW) / 2);
+  const top = stack[stack.length-1];
+  const fy = top.y - BLOCK_H - FALL_SPEED;
+  fallingBlock = {
+    x: boardX + Math.random() * (boardW * 0.5),
+    y: fy,
+    w: top.w,
+    h: BLOCK_H,
+    hue: blockHue(stack.length),
+    falling: true
+  };
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent = score;
+  document.getElementById('el-best').textContent = best;
+}
+
+function spawnParticles(x, y, col, n){
+  for(let i=0;i<n;i++){
+    const ang=Math.random()*Math.PI*2, sp=Math.random()*3+1;
+    particles.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,col,r:Math.random()*4+1});
+  }
+}
+
+function dropBlock(){
+  if(gameState !== 'playing') return;
+  if(!fallingBlock || !fallingBlock.falling) return;
+
+  const top = stack[stack.length-1];
+  const fb = fallingBlock;
+
+  // Overlap
+  const overlapL = Math.max(fb.x, top.x);
+  const overlapR = Math.min(fb.x + fb.w, top.x + top.w);
+  const overlap = overlapR - overlapL;
+
+  if(overlap <= 0){
+    // No overlap, game over
+    gameState = 'dead';
+    if(score > best){ best = score; localStorage.setItem('stackdrop_best',best); updateHUD(); }
+    setTimeout(()=>{
+      document.getElementById('ov-title').textContent = 'GAME OVER';
+      document.getElementById('ov-score').textContent = score;
+      document.getElementById('ov-msg').textContent = score >= 20 ? 'Stacking legend!' : score >= 10 ? 'Nice work!' : 'Land it on the stack!';
+      document.getElementById('overlay').classList.add('show');
+    }, 500);
+    return;
+  }
+
+  // Perfect check
+  const isPerfect = Math.abs(fb.x - top.x) <= PERFECT_THRESH && Math.abs((fb.x+fb.w)-(top.x+top.w)) <= PERFECT_THRESH;
+
+  if(isPerfect){
+    // Keep full width, bonus
+    stack.push({x:top.x, y:top.y - BLOCK_H, w:top.w, h:BLOCK_H, hue:fb.hue});
+    score += 20;
+    flashMsg = 'PERFECT!'; flashTimer = 50;
+    spawnParticles(W/2, top.y - BLOCK_H, `hsl(${fb.hue},100%,65%)`, 16);
+  } else {
+    // Trim
+    score += 10;
+    // Drop overhang pieces
+    if(fb.x < overlapL){
+      particles_drop(fb.x, fb.y, overlapL - fb.x, fb.h, fb.hue, -1);
+    }
+    if(fb.x + fb.w > overlapR){
+      particles_drop(overlapR, fb.y, (fb.x+fb.w) - overlapR, fb.h, fb.hue, 1);
+    }
+    stack.push({x:overlapL, y:top.y - BLOCK_H, w:overlap, h:BLOCK_H, hue:fb.hue});
+    spawnParticles(overlapL + overlap/2, top.y - BLOCK_H, `hsl(${fb.hue},100%,65%)`, 8);
+    flashMsg = overlap/top.w > 0.9 ? 'GREAT!' : '';
+    if(flashMsg) flashTimer = 35;
+  }
+
+  updateHUD();
+
+  // Camera scroll up
+  const newTop = stack[stack.length-1];
+  if(newTop.y < H * 0.4 + cameraY){
+    cameraY = newTop.y - H * 0.4;
+  }
+
+  spawnFalling();
+}
+
+function particles_drop(x, y, w, h, hue, dir){
+  for(let i=0;i<6;i++){
+    particles.push({
+      x: x + Math.random()*w, y: y + Math.random()*h,
+      vx: dir * (Math.random()*3+1), vy: Math.random()*(-2),
+      life: 1, col: `hsl(${hue},100%,55%)`, r: 3+Math.random()*3
+    });
+  }
+}
+
+function loop(){
+  raf = requestAnimationFrame(loop);
+
+  if(gameState === 'playing' && fallingBlock && fallingBlock.falling){
+    // Move falling block
+    if(keyLeft){ fallingBlock.x -= 3; }
+    if(keyRight){ fallingBlock.x += 3; }
+    // Keep in bounds
+    const boardW = Math.round(W * BOARD_W_FRAC);
+    const boardX = Math.round((W - boardW) / 2);
+    fallingBlock.x = Math.max(boardX - boardW*0.4, Math.min(boardX + boardW*0.4, fallingBlock.x));
+  }
+
+  if(flashTimer > 0) flashTimer--;
+  particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life-=0.025; });
+  particles = particles.filter(p => p.life > 0);
+
+  // Draw
+  ctx.fillStyle = '#050508'; ctx.fillRect(0,0,W,H);
+
+  // Board bg
+  const boardW = Math.round(W * BOARD_W_FRAC);
+  const boardX = Math.round((W - boardW) / 2);
+  ctx.fillStyle = 'rgba(255,255,255,.018)';
+  ctx.fillRect(boardX, 0, boardW, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,.03)'; ctx.lineWidth = 1;
+  for(let y=0;y<H;y+=BLOCK_H){ ctx.beginPath();ctx.moveTo(boardX,y);ctx.lineTo(boardX+boardW,y);ctx.stroke(); }
+
+  // Camera transform
+  ctx.save();
+  ctx.translate(0, -cameraY);
+
+  // Stack
+  stack.forEach((b, i) => {
+    const hue = b.hue;
+    ctx.save();
+    ctx.shadowColor = `hsl(${hue},100%,60%)`; ctx.shadowBlur = i===stack.length-1?12:4;
+    const g = ctx.createLinearGradient(b.x,b.y,b.x,b.y+b.h);
+    g.addColorStop(0, `hsl(${hue},80%,65%)`);
+    g.addColorStop(1, `hsl(${hue},80%,40%)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(b.x+1, b.y+1, b.w-2, b.h-2);
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    ctx.fillRect(b.x+1, b.y+1, b.w-2, Math.round(b.h*0.4));
+    ctx.strokeStyle = `hsl(${hue},100%,70%)`; ctx.lineWidth=1;
+    ctx.strokeRect(b.x+1,b.y+1,b.w-2,b.h-2);
+    ctx.restore();
+  });
+
+  // Falling block
+  if(fallingBlock && fallingBlock.falling && gameState==='playing'){
+    const fb = fallingBlock;
+    ctx.save();
+    ctx.shadowColor = `hsl(${fb.hue},100%,65%)`; ctx.shadowBlur = 14;
+    const g = ctx.createLinearGradient(fb.x,fb.y,fb.x,fb.y+fb.h);
+    g.addColorStop(0,`hsl(${fb.hue},100%,70%)`);
+    g.addColorStop(1,`hsl(${fb.hue},80%,45%)`);
+    ctx.fillStyle=g;
+    ctx.fillRect(fb.x+1,fb.y+1,fb.w-2,fb.h-2);
+    ctx.fillStyle='rgba(255,255,255,.25)';
+    ctx.fillRect(fb.x+1,fb.y+1,fb.w-2,Math.round(fb.h*0.4));
+    ctx.strokeStyle=`hsl(${fb.hue},100%,80%)`;ctx.lineWidth=1;
+    ctx.strokeRect(fb.x+1,fb.y+1,fb.w-2,fb.h-2);
+    // Ghost line showing top block alignment
+    const top=stack[stack.length-1];
+    ctx.strokeStyle='rgba(255,255,255,.08)';
+    ctx.setLineDash([4,6]);
+    ctx.beginPath();ctx.moveTo(top.x,fb.y);ctx.lineTo(top.x,top.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(top.x+top.w,fb.y);ctx.lineTo(top.x+top.w,top.y);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // Particles
+  particles.forEach(p => {
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  ctx.restore(); // end camera
+
+  // Flash message
+  if(flashTimer > 0 && flashMsg){
+    const a = flashTimer / 50;
+    ctx.fillStyle = `rgba(68,255,170,${a})`;
+    ctx.font = `bold ${Math.round(W*.09)}px 'Orbitron',monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor='#44ffaa'; ctx.shadowBlur=20;
+    ctx.fillText(flashMsg, W/2, H*0.35);
+    ctx.shadowBlur=0;
+  }
+
+  // Score overlay
+  ctx.fillStyle='rgba(255,255,255,.5)';
+  ctx.font=`bold ${Math.round(W*.09)}px 'Orbitron',monospace`;
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText(score, W/2, 14);
+}
+
+// Controls
+document.addEventListener('keydown', e => {
+  if(e.code==='ArrowLeft'){ e.preventDefault(); keyLeft=true; }
+  if(e.code==='ArrowRight'){ e.preventDefault(); keyRight=true; }
+  if(e.code==='Space'||e.code==='ArrowDown'){ e.preventDefault(); dropBlock(); }
+});
+document.addEventListener('keyup', e => {
+  if(e.code==='ArrowLeft') keyLeft=false;
+  if(e.code==='ArrowRight') keyRight=false;
+});
+
+cv.addEventListener('click', dropBlock);
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const rect = cv.getBoundingClientRect();
+  const tx = (e.touches[0].clientX - rect.left) * (W/rect.width);
+  if(tx < W/2) keyLeft = true;
+  else keyRight = true;
+  setTimeout(()=>{ keyLeft=false; keyRight=false; }, 150);
+  dropBlock();
+}, {passive:false});
+
+window.addEventListener('resize', () => { resize(); });
+
+newGame();
+</script>
+</body>
+</html>

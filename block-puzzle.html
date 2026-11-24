@@ -1,0 +1,275 @@
+<title>Block Puzzle</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root {
+    --bg: #1a2540;
+    --bg2: #0f1829;
+    --panel: #1e2d4a;
+    --panel2: #243356;
+    --border: #2e4070;
+    --text: #e8f0ff;
+    --text2: #8ba0c8;
+    --shadow: rgba(0,0,0,0.6);
+    --glow: rgba(74,158,255,0.15);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    user-select: none;
+    -webkit-user-select: none;
+    overflow-x: hidden;
+  }
+  #game-wrap { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 14px; }
+  #header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #score-box { flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; }
+  #score-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); margin-bottom: 2px; }
+  #score-val { font-size: 26px; font-weight: 700; color: #ffd54f; line-height: 1; }
+  #level-box { text-align: right; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; min-width: 90px; }
+  #level-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); margin-bottom: 2px; }
+  #level-val { font-size: 26px; font-weight: 700; color: #69f0ae; line-height: 1; }
+  #progress-bar-wrap { background: #0f1829; border-radius: 4px; height: 6px; overflow: hidden; margin-top: 6px; }
+  #progress-bar { height: 100%; background: linear-gradient(90deg, #4a9eff, #69f0ae); border-radius: 4px; transition: width 0.3s ease; }
+  #grid-container { position: relative; background: var(--bg2); border: 2px solid var(--border); border-radius: 16px; padding: 8px; box-shadow: 0 8px 32px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.05); }
+  #grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; aspect-ratio: 1; }
+  .cell { border-radius: 5px; background: var(--panel); border: 1px solid var(--border); position: relative; aspect-ratio: 1; transition: transform 0.08s; }
+  .cell.filled { border-color: transparent; }
+  .cell.preview { opacity: 0.55; transform: scale(0.92); }
+  .cell.preview-invalid { background: rgba(255,80,80,0.35) !important; opacity: 0.6; }
+  .cell.clearing { animation: clearPop 0.3s ease forwards; }
+  @keyframes clearPop { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.18);opacity:1} 100%{transform:scale(0);opacity:0} }
+  .cell.drop-flash { animation: dropFlash 0.25s ease; }
+  @keyframes dropFlash { 0%{filter:brightness(2)} 100%{filter:brightness(1)} }
+  .color-0 { background: linear-gradient(145deg,#ffb300 0%,#ff6d00 50%,#c43200 100%); box-shadow: inset 0 3px 0 rgba(255,235,120,.65), inset 0 -3px 0 rgba(0,0,0,.45), 0 2px 8px rgba(255,110,0,.5); }
+  .color-1 { background: linear-gradient(145deg,#ffee58 0%,#ffc107 50%,#e65100 100%); box-shadow: inset 0 3px 0 rgba(255,255,200,.7), inset 0 -3px 0 rgba(0,0,0,.4), 0 2px 8px rgba(255,193,7,.5); }
+  .color-2 { background: linear-gradient(145deg,#69ff7a 0%,#00c853 50%,#007a2e 100%); box-shadow: inset 0 3px 0 rgba(200,255,210,.65), inset 0 -3px 0 rgba(0,0,0,.45), 0 2px 8px rgba(0,200,83,.5); }
+  .color-3 { background: linear-gradient(145deg,#ff5252 0%,#d50000 50%,#7f0000 100%); box-shadow: inset 0 3px 0 rgba(255,200,200,.6), inset 0 -3px 0 rgba(0,0,0,.45), 0 2px 8px rgba(213,0,0,.5); }
+  .color-4 { background: linear-gradient(145deg,#40c4ff 0%,#0288d1 50%,#01478a 100%); box-shadow: inset 0 3px 0 rgba(200,235,255,.65), inset 0 -3px 0 rgba(0,0,0,.45), 0 2px 8px rgba(2,136,209,.5); }
+  .color-5 { background: linear-gradient(145deg,#ea80fc 0%,#aa00ff 50%,#5c0099 100%); box-shadow: inset 0 3px 0 rgba(240,200,255,.6), inset 0 -3px 0 rgba(0,0,0,.45), 0 2px 8px rgba(170,0,255,.5); }
+  .color-6 { background: linear-gradient(145deg,#18ffff 0%,#00bcd4 50%,#006978 100%); box-shadow: inset 0 3px 0 rgba(200,255,255,.65), inset 0 -3px 0 rgba(0,0,0,.45), 0 2px 8px rgba(0,188,212,.5); }
+  #tray { display: flex; gap: 10px; justify-content: center; }
+  .piece-slot { flex: 1; background: var(--panel); border: 2px solid var(--border); border-radius: 14px; display: flex; align-items: center; justify-content: center; padding: 10px 6px; min-height: 90px; cursor: grab; transition: border-color .15s, transform .15s, box-shadow .15s; }
+  .piece-slot:hover:not(.empty) { border-color: #4a9eff; box-shadow: 0 0 16px var(--glow); transform: translateY(-2px); }
+  .piece-slot.empty { opacity: 0.4; cursor: default; }
+  .piece-slot.dragging-source { opacity: 0.4; transform: scale(0.95); }
+  .piece-mini { display: grid; gap: 2px; }
+  .piece-mini .mc { width: 10px; height: 10px; border-radius: 2px; }
+  #controls { display: flex; gap: 10px; }
+  .btn { flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s, transform .1s; }
+  .btn:hover { background: var(--panel2); }
+  .btn:active { transform: scale(0.97); }
+  #btn-swap { color: #69f0ae; }
+  #btn-swap .cnt { background: #0d4a26; border-radius: 6px; padding: 2px 7px; font-size: 12px; }
+  #drag-ghost { position: fixed; pointer-events: none; z-index: 9999; opacity: 0.85; display: none; }
+  #drag-ghost .piece-mini { transform: scale(1.3); transform-origin: top left; }
+  #overlay { position: fixed; inset: 0; background: rgba(10,15,30,.85); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 100; }
+  #overlay.show { display: flex; }
+  #overlay h2 { font-size: 36px; font-weight: 700; color: #ffd54f; text-align: center; }
+  #overlay p { color: var(--text2); font-size: 16px; text-align: center; }
+  #overlay .btn-restart { background: linear-gradient(135deg,#4a9eff,#1565c0); color: #fff; border: none; padding: 14px 40px; border-radius: 12px; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 20px rgba(74,158,255,.4); }
+  .score-pop { position: absolute; color: #ffd54f; font-weight: 700; font-size: 18px; pointer-events: none; animation: popUp .8s ease forwards; z-index: 50; white-space: nowrap; }
+  @keyframes popUp { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-50px) scale(1.3)} }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+
+<div id="game-wrap">
+  <div id="header">
+    <div id="score-box">
+      <div id="score-label">Score</div>
+      <div id="score-val">0</div>
+      <div id="progress-bar-wrap"><div id="progress-bar" style="width:0%"></div></div>
+    </div>
+    <div id="level-box">
+      <div id="level-label">Level</div>
+      <div id="level-val">1</div>
+    </div>
+  </div>
+  <div id="grid-container"><div id="grid"></div></div>
+  <div id="tray">
+    <div class="piece-slot" id="slot-0" data-slot="0"></div>
+    <div class="piece-slot" id="slot-1" data-slot="1"></div>
+    <div class="piece-slot" id="slot-2" data-slot="2"></div>
+  </div>
+  <div id="controls">
+    <button class="btn" id="btn-swap">&#8652; Swap <span class="cnt" id="swap-cnt">3</span></button>
+    <button class="btn" id="btn-new">New Game</button>
+  </div>
+</div>
+<div id="drag-ghost"><div class="piece-mini" id="ghost-mini"></div></div>
+<div id="overlay">
+  <h2>Game Over</h2>
+  <p id="final-score">Score: 0</p>
+  <button class="btn-restart" id="btn-restart">Play Again</button>
+</div>
+
+<script>
+const GRID=8,LEVEL_GOAL=800,COLORS=7;
+const SHAPES=[[[0,0]],[[0,0],[0,1]],[[0,0],[1,0]],[[0,0],[0,1],[0,2]],[[0,0],[1,0],[2,0]],[[0,0],[0,1],[1,0]],[[0,0],[0,1],[1,1]],[[0,0],[1,0],[1,1]],[[1,0],[1,1],[0,1]],[[0,0],[1,0],[2,0],[2,1]],[[0,0],[0,1],[0,2],[1,0]],[[0,0],[1,0],[2,0],[0,1]],[[0,0],[0,1],[0,2],[1,2]],[[0,0],[0,1],[1,1],[1,2]],[[0,1],[0,2],[1,0],[1,1]],[[0,0],[0,1],[0,2],[1,1]],[[0,0],[1,0],[2,0],[1,1]],[[0,0],[0,1],[1,0],[1,1]],[[0,0],[0,1],[0,2],[0,3]],[[0,0],[1,0],[2,0],[3,0]],[[0,0],[0,1],[1,0],[1,1],[2,0]],[[0,0],[0,1],[0,2],[1,0],[1,1]]];
+let grid=[],score=0,level=1,levelScore=0,pieces=[null,null,null],swaps=3;
+let dragPiece=null,dragSlot=-1,previewCells=[],previewValid=false;
+const rand=n=>Math.floor(Math.random()*n);
+const randomPiece=()=>({shape:SHAPES[rand(SHAPES.length)],color:rand(COLORS)});
+function initGrid(){grid=[];for(let r=0;r<GRID;r++)grid.push(new Array(GRID).fill(-1));}
+function renderGrid(){
+  const g=document.getElementById('grid');g.innerHTML='';
+  for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+    const d=document.createElement('div');d.className='cell';
+    if(grid[r][c]>=0)d.classList.add('filled','color-'+grid[r][c]);
+    d.dataset.r=r;d.dataset.c=c;g.appendChild(d);
+  }
+}
+const getCell=(r,c)=>(r<0||r>=GRID||c<0||c>=GRID)?null:document.querySelector('.cell[data-r="'+r+'"][data-c="'+c+'"]');
+function renderPiece(slot){
+  const p=pieces[slot],el=document.getElementById('slot-'+slot);
+  el.innerHTML='';
+  if(!p){el.classList.add('empty');return;}
+  el.classList.remove('empty');
+  const s=p.shape,rows=Math.max(...s.map(x=>x[0]))+1,cols=Math.max(...s.map(x=>x[1]))+1;
+  const mini=document.createElement('div');
+  mini.className='piece-mini';mini.style.gridTemplateColumns='repeat('+cols+',10px)';mini.style.gridTemplateRows='repeat('+rows+',10px)';
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const mc=document.createElement('div');mc.className='mc';
+    if(s.some(x=>x[0]===r&&x[1]===c))mc.classList.add('color-'+p.color);
+    else mc.style.background='transparent';
+    mini.appendChild(mc);
+  }
+  el.appendChild(mini);
+}
+function renderPieces(){[0,1,2].forEach(renderPiece);}
+function updateScore(){
+  document.getElementById('score-val').textContent=score;
+  document.getElementById('level-val').textContent=level;
+  document.getElementById('progress-bar').style.width=Math.min(100,(levelScore/LEVEL_GOAL)*100)+'%';
+}
+function canPlace(piece,r,c){return piece.shape.every(([dr,dc])=>{const nr=r+dr,nc=c+dc;return nr>=0&&nr<GRID&&nc>=0&&nc<GRID&&grid[nr][nc]<0;});}
+function placePiece(piece,r,c){
+  piece.shape.forEach(([dr,dc])=>{
+    const nr=r+dr,nc=c+dc;grid[nr][nc]=piece.color;
+    const cell=getCell(nr,nc);
+    if(cell){cell.classList.remove('drop-flash');void cell.offsetWidth;cell.classList.add('filled','color-'+piece.color,'drop-flash');}
+  });
+}
+function clearLines(){
+  const toClear=new Set();
+  for(let r=0;r<GRID;r++)if(grid[r].every(v=>v>=0))for(let c=0;c<GRID;c++)toClear.add(r*GRID+c);
+  for(let c=0;c<GRID;c++)if(grid.every(row=>row[c]>=0))for(let r=0;r<GRID;r++)toClear.add(r*GRID+c);
+  if(!toClear.size)return 0;
+  const lines=new Set();
+  toClear.forEach(idx=>{const r=Math.floor(idx/GRID),c=idx%GRID;if(grid[r].every(v=>v>=0))lines.add('r'+r);if(grid.every(row=>row[c]>=0))lines.add('c'+c);});
+  const pts=lines.size*lines.size*10*toClear.size;
+  toClear.forEach(idx=>{const r=Math.floor(idx/GRID),c=idx%GRID;const cell=getCell(r,c);if(cell)cell.classList.add('clearing');setTimeout(()=>{grid[r][c]=-1;},300);});
+  setTimeout(renderGrid,320);
+  const gc=document.getElementById('grid-container');
+  const pop=document.createElement('div');pop.className='score-pop';pop.textContent='+'+pts;
+  pop.style.top=(gc.offsetHeight/2-20)+'px';pop.style.left=(gc.offsetWidth/2)+'px';
+  gc.appendChild(pop);pop.addEventListener('animationend',()=>pop.remove());
+  return pts;
+}
+function checkGameOver(){
+  for(let s=0;s<3;s++){if(!pieces[s])continue;for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++)if(canPlace(pieces[s],r,c))return false;}
+  return true;
+}
+function refillIfNeeded(){if(pieces.every(p=>p===null)){pieces=[randomPiece(),randomPiece(),randomPiece()];renderPieces();}}
+function showOverlay(){document.getElementById('final-score').textContent='Score: '+score;document.getElementById('overlay').classList.add('show');}
+function buildGhost(piece){
+  const ghost=document.getElementById('ghost-mini');ghost.innerHTML='';
+  const s=piece.shape,rows=Math.max(...s.map(x=>x[0]))+1,cols=Math.max(...s.map(x=>x[1]))+1;
+  ghost.style.gridTemplateColumns='repeat('+cols+',14px)';ghost.style.gridTemplateRows='repeat('+rows+',14px)';ghost.style.display='grid';ghost.style.gap='2px';
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const mc=document.createElement('div');mc.style.cssText='width:14px;height:14px;border-radius:3px;';
+    if(s.some(x=>x[0]===r&&x[1]===c))mc.classList.add('color-'+piece.color);else mc.style.background='transparent';
+    ghost.appendChild(mc);
+  }
+}
+function moveGhost(x,y){const g=document.getElementById('drag-ghost');g.style.left=(x-20)+'px';g.style.top=(y-20)+'px';}
+function cellFromPoint(x,y){for(const el of document.elementsFromPoint(x,y))if(el.classList.contains('cell'))return{r:+el.dataset.r,c:+el.dataset.c};return null;}
+function clearPreview(){
+  previewCells.forEach(el=>{
+    el.classList.remove('preview','preview-invalid');
+    for(let i=0;i<COLORS;i++)el.classList.remove('color-'+i);
+    if(el.dataset.origColor!==undefined&&el.dataset.origColor!==''){el.classList.add('filled','color-'+el.dataset.origColor);}
+    else el.classList.remove('filled');
+    delete el.dataset.origColor;
+  });
+  previewCells=[];
+}
+function showPreview(piece,r,c){
+  clearPreview();const valid=canPlace(piece,r,c);
+  piece.shape.forEach(([dr,dc])=>{
+    const nr=r+dr,nc=c+dc,cell=getCell(nr,nc);if(!cell)return;
+    cell.dataset.origColor=grid[nr][nc]>=0?String(grid[nr][nc]):'';
+    if(valid){if(grid[nr][nc]<0){cell.classList.remove('filled');cell.classList.add('preview','color-'+piece.color);}}
+    else cell.classList.add('preview','preview-invalid');
+    previewCells.push(cell);
+  });
+  previewValid=valid;
+}
+function dropPiece(r,c){
+  if(!dragPiece||!canPlace(dragPiece,r,c))return;
+  clearPreview();placePiece(dragPiece,r,c);
+  const pts=clearLines();
+  score+=dragPiece.shape.length*2+pts;levelScore+=dragPiece.shape.length*2+pts;
+  if(levelScore>=LEVEL_GOAL){level++;levelScore-=LEVEL_GOAL;}
+  pieces[dragSlot]=null;renderPiece(dragSlot);updateScore();refillIfNeeded();
+  setTimeout(()=>{if(checkGameOver())showOverlay();},350);
+}
+let mouseDown=false;
+document.querySelectorAll('.piece-slot').forEach(slot=>{
+  slot.addEventListener('mousedown',e=>{
+    const idx=+slot.dataset.slot;if(!pieces[idx])return;
+    dragPiece=pieces[idx];dragSlot=idx;mouseDown=true;slot.classList.add('dragging-source');
+    buildGhost(dragPiece);document.getElementById('drag-ghost').style.display='block';moveGhost(e.clientX,e.clientY);e.preventDefault();
+  });
+});
+document.addEventListener('mousemove',e=>{
+  if(!mouseDown)return;moveGhost(e.clientX,e.clientY);
+  const pt=cellFromPoint(e.clientX,e.clientY);if(pt)showPreview(dragPiece,pt.r,pt.c);else clearPreview();
+});
+document.addEventListener('mouseup',e=>{
+  if(!mouseDown)return;mouseDown=false;
+  document.getElementById('drag-ghost').style.display='none';
+  document.getElementById('slot-'+dragSlot)?.classList.remove('dragging-source');
+  const pt=cellFromPoint(e.clientX,e.clientY);
+  if(pt&&previewValid)dropPiece(pt.r,pt.c);else clearPreview();
+  dragPiece=null;dragSlot=-1;
+});
+document.querySelectorAll('.piece-slot').forEach(slot=>{
+  slot.addEventListener('touchstart',e=>{
+    const idx=+slot.dataset.slot;if(!pieces[idx])return;
+    dragPiece=pieces[idx];dragSlot=idx;slot.classList.add('dragging-source');
+    const t=e.touches[0];buildGhost(dragPiece);document.getElementById('drag-ghost').style.display='block';moveGhost(t.clientX,t.clientY);e.preventDefault();
+  },{passive:false});
+});
+document.addEventListener('touchmove',e=>{
+  if(!dragPiece)return;const t=e.touches[0];moveGhost(t.clientX,t.clientY);
+  const pt=cellFromPoint(t.clientX,t.clientY);if(pt)showPreview(dragPiece,pt.r,pt.c);else clearPreview();e.preventDefault();
+},{passive:false});
+document.addEventListener('touchend',e=>{
+  if(!dragPiece)return;document.getElementById('drag-ghost').style.display='none';
+  document.getElementById('slot-'+dragSlot)?.classList.remove('dragging-source');
+  const t=e.changedTouches[0],pt=cellFromPoint(t.clientX,t.clientY);
+  if(pt&&previewValid)dropPiece(pt.r,pt.c);else clearPreview();
+  dragPiece=null;dragSlot=-1;
+});
+document.getElementById('btn-swap').addEventListener('click',()=>{
+  if(swaps<=0)return;pieces=[randomPiece(),randomPiece(),randomPiece()];swaps--;
+  document.getElementById('swap-cnt').textContent=swaps;renderPieces();
+  setTimeout(()=>{if(checkGameOver())showOverlay();},50);
+});
+document.getElementById('btn-new').addEventListener('click',newGame);
+document.getElementById('btn-restart').addEventListener('click',()=>{document.getElementById('overlay').classList.remove('show');newGame();});
+function newGame(){
+  score=0;level=1;levelScore=0;swaps=3;document.getElementById('swap-cnt').textContent='3';
+  initGrid();renderGrid();pieces=[randomPiece(),randomPiece(),randomPiece()];renderPieces();updateScore();
+  document.getElementById('overlay').classList.remove('show');
+}
+newGame();
+</script>

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Metro Dash</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Nunito:wght@700;800&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#050a14;
+  color:#fff;
+  font-family:'Nunito',sans-serif;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:12px 16px 24px;
+  user-select:none;
+  -webkit-user-select:none;
+  overflow:hidden;
+}
+h1{
+  font-family:'Orbitron',monospace;
+  font-size:clamp(1.2rem,5vw,2rem);
+  font-weight:900;
+  color:#0ff;
+  text-shadow:0 0 20px #0ff, 0 0 40px #0ff4;
+  letter-spacing:.12em;
+  margin-bottom:8px;
+}
+.top-bar{
+  display:flex;
+  gap:20px;
+  margin-bottom:8px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+.stat{
+  font-family:'Orbitron',monospace;
+  font-size:.8rem;
+  letter-spacing:.06em;
+}
+.stat span{color:#0ff;text-shadow:0 0 8px #0ff}
+#canvas-wrap{
+  position:relative;
+  border-radius:10px;
+  overflow:hidden;
+  border:1px solid #0ff4;
+  box-shadow:0 0 40px #0ff2,0 8px 32px rgba(0,0,0,.7);
+}
+canvas{display:block;cursor:pointer;touch-action:none}
+.hint{
+  font-size:.75rem;
+  color:rgba(255,255,255,.35);
+  margin-top:8px;
+  letter-spacing:.04em;
+}
+#overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.85);
+  backdrop-filter:blur(6px);
+  z-index:100;
+  align-items:center;
+  justify-content:center;
+}
+#overlay.show{display:flex}
+.ov-box{
+  background:linear-gradient(145deg,#071628,#020810);
+  border:2px solid #0ff;
+  border-radius:16px;
+  padding:36px 32px;
+  text-align:center;
+  max-width:300px;
+  width:88%;
+  box-shadow:0 0 60px #0ff3;
+}
+.ov-box h2{font-family:'Orbitron',monospace;font-size:1.8rem;color:#0ff;text-shadow:0 0 20px #0ff;margin-bottom:10px}
+.ov-box p{color:rgba(255,255,255,.55);font-size:.85rem;margin-bottom:4px}
+.ov-score{font-family:'Orbitron',monospace;font-size:2.4rem;font-weight:900;color:#ffd700;text-shadow:0 0 16px #ffd7004a;display:block;margin:8px 0 20px}
+.btn{
+  background:transparent;
+  border:2px solid #0ff;
+  border-radius:8px;
+  color:#0ff;
+  font-family:'Orbitron',monospace;
+  font-size:.9rem;
+  font-weight:700;
+  padding:12px 32px;
+  cursor:pointer;
+  transition:background .15s,box-shadow .15s;
+  text-shadow:0 0 8px #0ff;
+  letter-spacing:.08em;
+}
+.btn:hover{background:rgba(0,255,255,.1);box-shadow:0 0 20px #0ff5}
+</style>
+</head>
+<body>
+<h1>METRO DASH</h1>
+<div class="top-bar">
+  <div class="stat">SCORE <span id="el-score">0</span></div>
+  <div class="stat">BEST <span id="el-best">0</span></div>
+  <div class="stat">COINS <span id="el-coins">0</span></div>
+</div>
+<div id="canvas-wrap">
+  <canvas id="cv"></canvas>
+</div>
+<div class="hint">SPACE / TAP to jump (double-jump available)</div>
+
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <p>Score</p>
+    <span class="ov-score" id="ov-score">0</span>
+    <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+let W, H, GROUND_Y, PLAYER_X, PLAYER_W, PLAYER_H, GH;
+let speed, playerY, playerVY, jumpsLeft, grounded;
+let segs, coins, bgStars, cityLayers, particles;
+let distance, score, coinCount, bestScore, alive;
+let raf, lastTime;
+
+const GRAVITY = 0.55;
+const COIN_VAL = 50;
+
+function resize(){
+  W = Math.min(window.innerWidth - 32, 520);
+  H = Math.round(W * 0.56);
+  GROUND_Y = H * 0.78;
+  PLAYER_X = W * 0.22;
+  PLAYER_W = W * 0.055;
+  PLAYER_H = PLAYER_W * 1.4;
+  GH = H - GROUND_Y; // ground thickness
+  cv.width = W; cv.height = H;
+}
+
+function mkStars(){
+  bgStars = Array.from({length:60}, () => ({
+    x: Math.random()*W,
+    y: Math.random()*(GROUND_Y * 0.7),
+    r: Math.random()*.8+.3,
+    op: .3+Math.random()*.5
+  }));
+}
+
+function mkCityLayer(n, h, sp, col){
+  const blds = [];
+  for(let i = 0; i < n; i++){
+    const bw = 20+Math.random()*40;
+    blds.push({x:i*(W/n)+Math.random()*(W/n*.5), w:bw, h:h*(0.4+Math.random()*0.6), col, sp});
+  }
+  return blds;
+}
+
+function startGame(){
+  resize();
+  bestScore = bestScore || 0;
+  speed = W * 0.008;
+  playerY = GROUND_Y - PLAYER_H;
+  playerVY = 0; jumpsLeft = 2; grounded = true;
+  distance = 0; score = 0; coinCount = 0; alive = true;
+  particles = [];
+
+  // Ground segments: list of {x, w} meaning solid ground at [x, x+w]
+  segs = [{x:0, w:W*3}];
+  coins = [];
+
+  mkStars();
+  cityLayers = [
+    mkCityLayer(14, GROUND_Y*0.55, 0.15, '#0d1f30'),
+    mkCityLayer(10, GROUND_Y*0.42, 0.3, '#0a2a3a'),
+    mkCityLayer(7,  GROUND_Y*0.3,  0.6, '#093040'),
+  ];
+
+  document.getElementById('overlay').classList.remove('show');
+  updateUI();
+  cancelAnimationFrame(raf);
+  lastTime = performance.now();
+  raf = requestAnimationFrame(loop);
+}
+
+function jump(){
+  if(!alive) return;
+  if(jumpsLeft > 0){
+    playerVY = -(H * 0.034 + speed * 0.3);
+    jumpsLeft--;
+    grounded = false;
+    spawnJumpParticles();
+  }
+}
+
+function spawnJumpParticles(){
+  for(let i = 0; i < 6; i++){
+    particles.push({
+      x: PLAYER_X + PLAYER_W*.5,
+      y: playerY + PLAYER_H,
+      vx: (Math.random()-.5)*2,
+      vy: Math.random()*1.5+.5,
+      life: 1,
+      col: '#0ff'
+    });
+  }
+}
+
+function update(dt){
+  if(!alive) return;
+  const f = dt/16;
+
+  // Speed ramp
+  distance += speed * f;
+  speed = W * 0.008 + distance * 0.000015 * W;
+  score = Math.floor(distance) + coinCount * COIN_VAL;
+
+  // Scroll segments
+  segs.forEach(s => s.x -= speed*f);
+  segs = segs.filter(s => s.x + s.w > 0);
+
+  // Generate ahead
+  const lastSeg = segs[segs.length-1];
+  if(lastSeg.x + lastSeg.w < W * 1.8){
+    // gap width grows with difficulty
+    const maxGap = Math.min(PLAYER_W * 3.5, PLAYER_W * (2 + distance/5000));
+    const gapW = PLAYER_W * 1.4 + Math.random() * (maxGap - PLAYER_W*1.4);
+    const nextW = PLAYER_W * (3 + Math.random()*4);
+    segs.push({x: lastSeg.x+lastSeg.w+gapW, w: nextW});
+
+    // Coin over gap
+    if(Math.random() < 0.6){
+      coins.push({
+        x: lastSeg.x+lastSeg.w+gapW*.5,
+        y: GROUND_Y - PLAYER_H*1.2 - Math.random()*PLAYER_H*.8,
+        r: PLAYER_W*.35,
+        col: false
+      });
+    }
+  }
+
+  // Scroll coins
+  coins.forEach(c => c.x -= speed*f);
+  coins = coins.filter(c => !c.col || c.x > -20);
+
+  // Scroll city
+  cityLayers.forEach(layer => {
+    layer.forEach(b => {
+      b.x -= b.sp * speed * f;
+      if(b.x + b.w < 0) b.x = W + Math.random()*40;
+    });
+  });
+
+  // Player physics
+  playerVY += GRAVITY * f;
+  playerY += playerVY * f;
+
+  // Find ground under player
+  let onGround = false;
+  let standY = GROUND_Y;
+  segs.forEach(s => {
+    const px = PLAYER_X;
+    if(px+PLAYER_W > s.x && px < s.x+s.w){
+      if(playerY + PLAYER_H > standY - 2 && playerVY >= 0){
+        onGround = true;
+        standY = GROUND_Y;
+      }
+    }
+  });
+
+  if(onGround && playerVY >= 0){
+    playerY = standY - PLAYER_H;
+    playerVY = 0;
+    if(!grounded){ grounded = true; jumpsLeft = 2; }
+  } else {
+    grounded = false;
+  }
+
+  // Fall death
+  if(playerY > H + 40){
+    endGame();
+    return;
+  }
+
+  // Coin collection
+  coins.forEach(c => {
+    if(c.col) return;
+    const dx = (PLAYER_X+PLAYER_W*.5) - c.x;
+    const dy = (playerY+PLAYER_H*.5) - c.y;
+    if(Math.abs(dx) < PLAYER_W*.7+c.r && Math.abs(dy) < PLAYER_H*.5+c.r){
+      c.col = true;
+      coinCount++;
+      for(let i = 0; i < 8; i++){
+        const ang = Math.random()*Math.PI*2;
+        particles.push({x:c.x,y:c.y,vx:Math.cos(ang)*1.5,vy:Math.sin(ang)*1.5-1,life:1,col:'#ffd700'});
+      }
+    }
+  });
+
+  // Particles
+  particles.forEach(p => { p.x+=p.vx*f; p.y+=p.vy*f; p.vy+=.1*f; p.life-=.04*f; });
+  particles = particles.filter(p => p.life > 0);
+
+  updateUI();
+}
+
+function updateUI(){
+  document.getElementById('el-score').textContent = score.toLocaleString();
+  document.getElementById('el-best').textContent = bestScore.toLocaleString();
+  document.getElementById('el-coins').textContent = coinCount;
+}
+
+function endGame(){
+  alive = false;
+  if(score > bestScore) bestScore = score;
+  document.getElementById('ov-score').textContent = score.toLocaleString();
+  document.getElementById('overlay').classList.add('show');
+  updateUI();
+}
+
+function drawScene(){
+  // Sky gradient
+  const sky = ctx.createLinearGradient(0,0,0,GROUND_Y);
+  sky.addColorStop(0,'#010816');
+  sky.addColorStop(1,'#071628');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0,0,W,GROUND_Y);
+
+  // Stars
+  bgStars.forEach(s => {
+    ctx.globalAlpha = s.op;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // City silhouettes
+  cityLayers.forEach(layer => {
+    layer.forEach(b => {
+      ctx.fillStyle = b.col;
+      ctx.fillRect(b.x, GROUND_Y-b.h, b.w, b.h);
+      // Window dots
+      ctx.fillStyle = 'rgba(0,200,255,.12)';
+      for(let wx=b.x+4; wx<b.x+b.w-4; wx+=8){
+        for(let wy=GROUND_Y-b.h+6; wy<GROUND_Y-4; wy+=8){
+          if(Math.sin(wx*7+wy*3)>.3) ctx.fillRect(wx,wy,3,3);
+        }
+      }
+    });
+  });
+
+  // Ground segments
+  segs.forEach(s => {
+    // Top glow
+    ctx.shadowColor = '#0ff';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#0ff';
+    ctx.fillRect(s.x, GROUND_Y, s.w, 2);
+    ctx.shadowBlur = 0;
+
+    // Ground body
+    const gg = ctx.createLinearGradient(0,GROUND_Y,0,H);
+    gg.addColorStop(0,'#0d2a3a');
+    gg.addColorStop(1,'#040e18');
+    ctx.fillStyle = gg;
+    ctx.fillRect(s.x, GROUND_Y+2, s.w, GH);
+  });
+
+  // Coins
+  coins.forEach(c => {
+    if(c.col) return;
+    ctx.save();
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#fff8';
+    ctx.beginPath();
+    ctx.arc(c.x-c.r*.25, c.y-c.r*.25, c.r*.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Player
+  if(alive || particles.length > 0){
+    const px = PLAYER_X, py = playerY;
+    // Trail
+    ctx.save();
+    ctx.globalAlpha = .4;
+    ctx.fillStyle = '#0ff';
+    ctx.fillRect(px-6, py+PLAYER_H*.2, 6, PLAYER_H*.6);
+    ctx.globalAlpha = .15;
+    ctx.fillRect(px-14, py+PLAYER_H*.35, 8, PLAYER_H*.3);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // Body
+    ctx.save();
+    ctx.shadowColor = '#0ff';
+    ctx.shadowBlur = 14;
+    const pg = ctx.createLinearGradient(px,py,px,py+PLAYER_H);
+    pg.addColorStop(0,'#80ffff');
+    pg.addColorStop(.4,'#00dfff');
+    pg.addColorStop(1,'#0066aa');
+    ctx.fillStyle = pg;
+    rRect(ctx, px, py, PLAYER_W, PLAYER_H, PLAYER_W*.2);
+    ctx.fill();
+
+    // Visor
+    ctx.fillStyle = 'rgba(0,0,0,.7)';
+    rRect(ctx, px+PLAYER_W*.1, py+PLAYER_H*.12, PLAYER_W*.8, PLAYER_H*.28, PLAYER_W*.1);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0,220,255,.5)';
+    rRect(ctx, px+PLAYER_W*.1, py+PLAYER_H*.12, PLAYER_W*.8, PLAYER_H*.28, PLAYER_W*.1);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Particles
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.col;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Distance HUD
+  ctx.save();
+  ctx.font = `bold ${W*.028}px Orbitron,monospace`;
+  ctx.fillStyle = 'rgba(0,255,255,.25)';
+  ctx.textAlign = 'right';
+  ctx.fillText(Math.floor(distance)+'m', W-12, H-10);
+  ctx.restore();
+}
+
+function rRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function loop(now){
+  const dt = Math.min(now - lastTime, 50);
+  lastTime = now;
+  update(dt);
+  drawScene();
+  raf = requestAnimationFrame(loop);
+}
+
+// Controls
+document.addEventListener('keydown', e => {
+  if(e.code === 'Space' || e.code === 'ArrowUp'){
+    e.preventDefault();
+    if(!alive) startGame();
+    else jump();
+  }
+});
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if(!alive) startGame();
+  else jump();
+}, {passive:false});
+cv.addEventListener('click', () => {
+  if(!alive) startGame();
+  else jump();
+});
+window.addEventListener('resize', () => {
+  if(alive) startGame();
+  else resize();
+});
+
+startGame();
+</script>
+</body>
+</html>

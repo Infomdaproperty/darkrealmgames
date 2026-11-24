@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Color Switch</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#00ffee,#ffee00,#ff44aa,#44ff88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#00ffee;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(0,255,238,.18),0 0 2px rgba(0,255,238,.3);cursor:pointer;touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #00ffee;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(0,255,238,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ff44aa;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#003330,#001a18);border:1px solid #00ffee;border-radius:8px;color:#00ffee;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>COLOR SWITCH</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Tap / Space to switch ball color</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Match ball to ring segment!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H;
+
+const COLS = ['#00ffee','#ffee00','#ff44aa','#44ff88'];
+const SEGS = 4;
+
+let ball, ring, particles, score, best, gameState, raf, speed;
+
+function resize(){
+  const avail = Math.min(window.innerWidth - 20, 340);
+  W = avail; H = Math.round(W * 1.6);
+  cv.width = W; cv.height = H;
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  ball = {y: H / 2, vy: 2.8, colorIdx: 0, r: 12, bouncing: true};
+  ring = {angle: 0, speed: 0.018, r: W * 0.3, thickness: 22};
+  particles = [];
+  score = 0; speed = 0.018;
+  best = +(localStorage.getItem('cswitch_best') || 0);
+  gameState = 'playing';
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent = score;
+  document.getElementById('el-best').textContent = best;
+}
+
+function switchBall(){
+  if(gameState !== 'playing') return;
+  ball.colorIdx = (ball.colorIdx + 1) % COLS.length;
+  spawnParticles(W/2, ball.y, COLS[ball.colorIdx], 5);
+}
+
+function spawnParticles(x, y, col, n){
+  for(let i=0;i<n;i++){
+    const ang = Math.random()*Math.PI*2, sp = Math.random()*3+1;
+    particles.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,col,r:Math.random()*3+1});
+  }
+}
+
+function getSegmentColorAt(angle){
+  // Ring has 4 segments. angle in radians. Segment 0 starts at ring.angle.
+  const normalized = ((angle - ring.angle) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+  const idx = Math.floor(normalized / (Math.PI*2/SEGS)) % SEGS;
+  return idx;
+}
+
+function loop(){
+  raf = requestAnimationFrame(loop);
+
+  if(gameState === 'playing'){
+    // Ball bounce
+    ball.y += ball.vy;
+    if(ball.y - ball.r < 0){ ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
+    if(ball.y + ball.r > H){ ball.y = H - ball.r; ball.vy = -Math.abs(ball.vy); }
+
+    // Ring rotation
+    ring.angle += ring.speed;
+
+    // Check if ball passes through ring
+    const cx = W/2, cy = H/2;
+    const dy = ball.y - cy;
+    const dist = Math.abs(dy);
+    const rInner = ring.r - ring.thickness/2;
+    const rOuter = ring.r + ring.thickness/2;
+    const ballLeft = -ball.r + W/2;
+    const ballRight = ball.r + W/2;
+
+    // Ball is at ring radius horizontally?
+    // Ball center is at W/2 always (horizontal center)
+    const ballDist = Math.sqrt((W/2 - cx)*(W/2 - cx) + (ball.y - cy)*(ball.y - cy));
+
+    if(ballDist >= rInner - ball.r && ballDist <= rOuter + ball.r){
+      // Ball is touching the ring, check angle
+      const ballAngle = Math.atan2(ball.y - cy, W/2 - cx);
+      const segIdx = getSegmentColorAt(ballAngle);
+      if(segIdx !== ball.colorIdx){
+        // Wrong color, game over
+        gameState = 'dead';
+        spawnParticles(W/2, ball.y, '#ff3355', 20);
+        if(score > best){ best = score; localStorage.setItem('cswitch_best', best); updateHUD(); }
+        setTimeout(()=>{
+          document.getElementById('ov-title').textContent = 'GAME OVER';
+          document.getElementById('ov-score').textContent = score;
+          document.getElementById('ov-msg').textContent = score >= 15 ? 'Color wizard!' : score >= 8 ? 'Nice switching!' : 'Match the ring color!';
+          document.getElementById('overlay').classList.add('show');
+        }, 700);
+      } else {
+        // Passed through, score
+        if(ball.vy > 0 && ball.y > cy){
+          // just check we don't double-score; handled by passing through
+        }
+      }
+    }
+
+    // Score = distance ring has rotated / segments passed
+    // Simple: score per second
+  }
+
+  particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.08; p.life-=0.025; });
+  particles = particles.filter(p => p.life > 0);
+
+  // Draw
+  ctx.fillStyle = '#050508'; ctx.fillRect(0,0,W,H);
+
+  // Ring
+  const cx = W/2, cy = H/2;
+  for(let i=0;i<SEGS;i++){
+    const startAng = ring.angle + i*(Math.PI*2/SEGS);
+    const endAng = ring.angle + (i+1)*(Math.PI*2/SEGS);
+    ctx.save();
+    ctx.shadowColor = COLS[i]; ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(cx, cy, ring.r, startAng, endAng);
+    ctx.lineWidth = ring.thickness;
+    ctx.strokeStyle = COLS[i];
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Ball
+  const bc = COLS[ball.colorIdx];
+  ctx.save();
+  ctx.shadowColor = bc; ctx.shadowBlur = 20;
+  const g = ctx.createRadialGradient(W/2 - ball.r*0.3, ball.y - ball.r*0.3, 1, W/2, ball.y, ball.r);
+  g.addColorStop(0, '#fff');
+  g.addColorStop(0.4, bc);
+  g.addColorStop(1, 'rgba(0,0,0,.5)');
+  ctx.beginPath(); ctx.arc(W/2, ball.y, ball.r, 0, Math.PI*2);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+
+  // Particles
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // Score display
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.font = `bold ${Math.round(W*.1)}px 'Orbitron',monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(score, W/2, 14);
+
+  // Tick score
+  if(gameState === 'playing' && Math.random() < 0.01){
+    score++;
+    ring.speed = Math.min(0.06, 0.018 + score * 0.0004);
+    updateHUD();
+  }
+}
+
+document.addEventListener('keydown', e => { if(e.code === 'Space'){ e.preventDefault(); switchBall(); } });
+cv.addEventListener('click', switchBall);
+cv.addEventListener('touchstart', e => { e.preventDefault(); switchBall(); }, {passive:false});
+window.addEventListener('resize', () => { resize(); });
+
+newGame();
+</script>
+</body>
+</html>

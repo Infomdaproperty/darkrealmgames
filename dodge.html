@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dodge</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#00e5ff,#00ff88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:5px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(0,229,255,.12);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#00e5ff;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(0,229,255,.18);touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #00e5ff;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(0,229,255,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#00e5ff;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#001a22,#000e14);border:1px solid #00e5ff;border-radius:8px;color:#00e5ff;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>DODGE</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Time</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Arrow keys / WASD / drag to move</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">HIT!</h2>
+    <div class="ov-score" id="ov-score">0s</div>
+    <p id="ov-msg">Keep dodging!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H;
+
+function resize(){
+  const avail = Math.min(window.innerWidth-20, 380);
+  W = avail; H = Math.round(W*1.2);
+  cv.width = W; cv.height = H;
+}
+
+let player, enemies, particles, trails;
+let score, best, gameState, raf;
+let keys = {};
+let touchDrag = null;
+let spawnTimer = 0;
+let clockTimer = 0;
+let flashTimer = 0;
+let hue = 0;
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  score = 0; best = +(localStorage.getItem('dodge_best')||0);
+  gameState = 'idle';
+  player = {x:W/2, y:H/2, r:14, vx:0, vy:0};
+  enemies = []; particles = []; trails = [];
+  spawnTimer = 0; clockTimer = 0; flashTimer = 0; hue = 0;
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent = score;
+  document.getElementById('el-best').textContent = best;
+}
+
+function spawnEnemy(){
+  const side = Math.floor(Math.random()*4);
+  let x, y;
+  if(side===0){x=Math.random()*W;y=-20;}
+  else if(side===1){x=W+20;y=Math.random()*H;}
+  else if(side===2){x=Math.random()*W;y=H+20;}
+  else{x=-20;y=Math.random()*H;}
+  const ang=Math.atan2(player.y-y,player.x-x)+( Math.random()-.5)*.4;
+  const sp=1.5+score*0.08;
+  const h=Math.floor(Math.random()*360);
+  enemies.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,r:12,hue:h,trail:[]});
+}
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+  hue=(hue+0.5)%360;
+
+  if(gameState==='idle'){
+    // Idle pulsing
+    draw();
+    return;
+  }
+
+  if(gameState!=='playing'){draw();return;}
+
+  // Clock
+  clockTimer++;
+  if(clockTimer>=60){
+    clockTimer=0;
+    score++;
+    updateHUD();
+    if(score>best){best=score;localStorage.setItem('dodge_best',best);updateHUD();}
+  }
+
+  // Player movement
+  const spd = 4;
+  if(keys['ArrowLeft']||keys['a']||keys['A']) player.vx = -spd;
+  else if(keys['ArrowRight']||keys['d']||keys['D']) player.vx = spd;
+  else player.vx *= 0.7;
+  if(keys['ArrowUp']||keys['w']||keys['W']) player.vy = -spd;
+  else if(keys['ArrowDown']||keys['s']||keys['S']) player.vy = spd;
+  else player.vy *= 0.7;
+
+  if(touchDrag){
+    const dx=touchDrag.x-player.x, dy=touchDrag.y-player.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>8){player.vx=dx/dist*spd*1.5;player.vy=dy/dist*spd*1.5;}
+    else{player.vx*=0.5;player.vy*=0.5;}
+  }
+
+  player.x=Math.max(player.r,Math.min(W-player.r,player.x+player.vx));
+  player.y=Math.max(player.r,Math.min(H-player.r,player.y+player.vy));
+
+  // Spawn
+  spawnTimer++;
+  const interval = Math.max(25, 60-score*2);
+  if(spawnTimer>=interval){spawnTimer=0;spawnEnemy();}
+
+  // Update enemies
+  enemies.forEach(e=>{
+    e.trail.push({x:e.x,y:e.y,life:1});
+    if(e.trail.length>8) e.trail.shift();
+    e.trail.forEach(t=>t.life-=0.12);
+    // Home toward player gradually
+    const ang=Math.atan2(player.y-e.y,player.x-e.x);
+    const turn=0.03;
+    const curAng=Math.atan2(e.vy,e.vx);
+    const diff=ang-curAng;
+    const sp=Math.sqrt(e.vx*e.vx+e.vy*e.vy);
+    const newAng=curAng+Math.max(-turn,Math.min(turn,diff));
+    e.vx=Math.cos(newAng)*sp;
+    e.vy=Math.sin(newAng)*sp;
+    e.x+=e.vx; e.y+=e.vy;
+  });
+  enemies=enemies.filter(e=>e.x>-40&&e.x<W+40&&e.y>-40&&e.y<H+40);
+
+  // Near-miss flash
+  enemies.forEach(e=>{
+    const dx=e.x-player.x,dy=e.y-player.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<player.r+e.r+20&&dist>player.r+e.r){
+      flashTimer=Math.max(flashTimer,8);
+    }
+  });
+  if(flashTimer>0) flashTimer--;
+
+  // Collision
+  for(const e of enemies){
+    const dx=e.x-player.x,dy=e.y-player.y;
+    if(Math.sqrt(dx*dx+dy*dy)<player.r+e.r-2){
+      gameState='dead';
+      for(let i=0;i<20;i++){
+        const ang=Math.random()*Math.PI*2,sp=Math.random()*5+1;
+        particles.push({x:player.x,y:player.y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,col:`hsl(${hue},100%,60%)`,r:Math.random()*4+2});
+      }
+      setTimeout(()=>{
+        document.getElementById('ov-title').textContent='HIT!';
+        document.getElementById('ov-score').textContent=score+'s';
+        document.getElementById('ov-msg').textContent=score>30?'Dodge master!':score>15?'Great reflexes!':'Keep dodging!';
+        document.getElementById('overlay').classList.add('show');
+      },700);
+      break;
+    }
+  }
+
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.02;});
+  particles=particles.filter(p=>p.life>0);
+
+  draw();
+}
+
+function draw(){
+  ctx.fillStyle='#050508';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(0,229,255,.03)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // Flash
+  if(flashTimer>0){
+    ctx.fillStyle=`rgba(255,100,0,${flashTimer/8*0.15})`;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // Enemy trails
+  enemies.forEach(e=>{
+    e.trail.forEach((t,i)=>{
+      ctx.globalAlpha=t.life*0.3;
+      ctx.fillStyle=`hsl(${e.hue},100%,60%)`;
+      ctx.beginPath();ctx.arc(t.x,t.y,e.r*(i/e.trail.length),0,Math.PI*2);ctx.fill();
+    });
+  });
+  ctx.globalAlpha=1;
+
+  // Enemies
+  enemies.forEach(e=>{
+    ctx.shadowColor=`hsl(${e.hue},100%,60%)`;ctx.shadowBlur=14;
+    ctx.fillStyle=`hsl(${e.hue},80%,55%)`;
+    ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=`hsl(${e.hue},100%,80%)`;ctx.lineWidth=1.5;ctx.stroke();
+    ctx.shadowBlur=0;
+  });
+
+  // Particles
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // Player
+  if(gameState!=='dead'){
+    ctx.shadowColor=`hsl(${hue},100%,70%)`;ctx.shadowBlur=22;
+    ctx.fillStyle=`hsl(${hue},100%,55%)`;
+    ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.stroke();
+    // Inner glow
+    ctx.fillStyle=`rgba(255,255,255,.4)`;
+    ctx.beginPath();ctx.arc(player.x,player.y,player.r*.4,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  if(gameState==='idle'){
+    ctx.fillStyle='rgba(0,229,255,.7)';
+    ctx.font=`${Math.round(W*.04)}px 'Orbitron',monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('TAP / PRESS TO START',W/2,H*.7);
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  keys[e.key]=true;keys[e.code]=true;
+  if(gameState==='idle') gameState='playing';
+});
+document.addEventListener('keyup',e=>{keys[e.key]=false;keys[e.code]=false;});
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(gameState==='idle') gameState='playing';
+  const r=cv.getBoundingClientRect();
+  touchDrag={x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};
+},{passive:false});
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  touchDrag={x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};
+},{passive:false});
+cv.addEventListener('touchend',e=>{e.preventDefault();touchDrag=null;},{passive:false});
+cv.addEventListener('click',()=>{if(gameState==='idle') gameState='playing';});
+window.addEventListener('resize',resize);
+newGame();
+</script>
+</body>
+</html>

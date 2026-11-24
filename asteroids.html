@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Asteroids</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#ffaa00,#ff6600);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
+.scores{display:flex;gap:16px;margin-bottom:8px;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,170,0,.12);border-radius:6px;padding:3px 14px;}
+.score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.score-val{font-size:1.1rem;color:#ffaa00;letter-spacing:.05em}
+canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(255,170,0,.15),0 0 2px rgba(255,170,0,.3);touch-action:none;}
+.hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
+#btns{display:flex;gap:10px;margin-top:10px;}
+.ctrl-btn{width:56px;height:56px;border-radius:50%;border:1px solid rgba(255,170,0,.4);background:rgba(255,170,0,.08);color:#ffaa00;font-family:'Orbitron',monospace;font-size:.65rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;-webkit-tap-highlight-color:transparent;}
+.ctrl-btn:active{background:rgba(255,170,0,.25);}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
+#overlay.show{display:flex}
+.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #ffaa00;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(255,170,0,.25);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#ffaa00;margin-bottom:4px}
+.ov-box .ov-score{font-size:1.8rem;color:#fff;margin-bottom:4px}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
+.btn{background:linear-gradient(135deg,#2a1800,#1a0e00);border:1px solid #ffaa00;border-radius:8px;color:#ffaa00;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.btn:hover{transform:translateY(-2px)}
+</style>
+</head>
+<body>
+<h1>ASTEROIDS</h1>
+<div class="scores">
+  <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Lives</div><div class="score-val" id="el-lives">3</div></div>
+  <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
+</div>
+<canvas id="cv"></canvas>
+<div class="hint">Arrows: rotate/thrust &bull; Space: fire</div>
+<div id="btns">
+  <div class="ctrl-btn" id="btn-left" ontouchstart="ctrl.left=true" ontouchend="ctrl.left=false">L</div>
+  <div class="ctrl-btn" id="btn-thrust" ontouchstart="ctrl.thrust=true" ontouchend="ctrl.thrust=false">THR</div>
+  <div class="ctrl-btn" id="btn-right" ontouchstart="ctrl.right=true" ontouchend="ctrl.right=false">R</div>
+  <div class="ctrl-btn" id="btn-fire" ontouchstart="fire()" style="border-color:rgba(255,100,0,.5);color:#ff6600;">FIRE</div>
+</div>
+<div id="overlay">
+  <div class="ov-box">
+    <h2 id="ov-title">GAME OVER</h2>
+    <div class="ov-score" id="ov-score">0</div>
+    <p id="ov-msg">Watch out for asteroids!</p>
+    <button class="btn" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+let W,H;
+const ctrl={left:false,right:false,thrust:false};
+let ship,bullets,rocks,particles,stars;
+let score,lives,best,gameState,invincible,raf;
+
+function resize(){
+  const avail=Math.min(window.innerWidth-20,380);
+  W=avail; H=Math.round(W*1.1);
+  cv.width=W; cv.height=H;
+}
+
+function makeShip(){
+  return {x:W/2,y:H/2,angle:-Math.PI/2,vx:0,vy:0,alive:true,flash:0};
+}
+
+function makeRock(x,y,size){
+  const ang=Math.random()*Math.PI*2;
+  const spd=(Math.random()*0.8+0.4)*(3-size)*0.6*(W/360);
+  const pts=[];
+  const n=7+Math.floor(Math.random()*4);
+  for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2+Math.random()*0.4;
+    const r=(0.7+Math.random()*0.3)*[22,13,7][size]*(W/360);
+    pts.push({x:Math.cos(a)*r,y:Math.sin(a)*r});
+  }
+  return {x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,size,pts,angle:0,spin:(Math.random()-.5)*0.04};
+}
+
+function spawnRocks(n){
+  const rocks=[];
+  for(let i=0;i<n;i++){
+    let x,y;
+    do{ x=Math.random()*W; y=Math.random()*H; }
+    while(Math.hypot(x-W/2,y-H/2)<100);
+    rocks.push(makeRock(x,y,0));
+  }
+  return rocks;
+}
+
+function spawnParticles(x,y,col,n=10){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=Math.random()*3+1;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,col,r:Math.random()*2.5+0.5});
+  }
+}
+
+function fire(){
+  if(gameState!=='playing'||bullets.length>6) return;
+  const spd=W*0.016;
+  bullets.push({x:ship.x+Math.cos(ship.angle)*14,y:ship.y+Math.sin(ship.angle)*14,vx:ship.vx+Math.cos(ship.angle)*spd,vy:ship.vy+Math.sin(ship.angle)*spd,life:1});
+}
+
+function newGame(){
+  document.getElementById('overlay').classList.remove('show');
+  resize();
+  ship=makeShip();
+  bullets=[]; particles=[];
+  stars=Array.from({length:60},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+.3}));
+  score=0; lives=3; best=+(localStorage.getItem('ast_best')||0);
+  rocks=spawnRocks(4);
+  gameState='playing'; invincible=120;
+  updateHUD();
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('el-score').textContent=score;
+  document.getElementById('el-lives').textContent=lives;
+  document.getElementById('el-best').textContent=best;
+}
+
+function wrap(obj){ obj.x=(obj.x+W)%W; obj.y=(obj.y+H)%H; }
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+
+  if(gameState==='playing'){
+    if(ctrl.left) ship.angle-=0.065;
+    if(ctrl.right) ship.angle+=0.065;
+    if(ctrl.thrust){
+      ship.vx+=Math.cos(ship.angle)*0.18; ship.vy+=Math.sin(ship.angle)*0.18;
+      spawnParticles(ship.x-Math.cos(ship.angle)*14,ship.y-Math.sin(ship.angle)*14,'#ff6600',2);
+    }
+    ship.vx*=0.985; ship.vy*=0.985;
+    ship.x+=ship.vx; ship.y+=ship.vy;
+    wrap(ship);
+    if(invincible>0) invincible--;
+
+    // Bullets
+    bullets.forEach(b=>{ b.x+=b.vx; b.y+=b.vy; b.life-=0.012; wrap(b); });
+    bullets=bullets.filter(b=>b.life>0);
+
+    // Rocks
+    rocks.forEach(r=>{ r.x+=r.vx; r.y+=r.vy; r.angle+=r.spin; wrap(r); });
+
+    // Bullet-rock collisions
+    bullets.forEach(b=>{
+      rocks.forEach(r=>{
+        const radius=[22,13,7][r.size]*(W/360);
+        if(Math.hypot(b.x-r.x,b.y-r.y)<radius){
+          b.life=0;
+          spawnParticles(r.x,r.y,'#ffaa00',r.size===0?14:8);
+          const pts=[20,10,5]; score+=pts[r.size]; updateHUD();
+          if(r.size<2){ rocks.push(makeRock(r.x,r.y,r.size+1)); rocks.push(makeRock(r.x,r.y,r.size+1)); }
+          r.dead=true;
+        }
+      });
+    });
+    rocks=rocks.filter(r=>!r.dead);
+
+    // Ship-rock collision
+    if(invincible<=0){
+      rocks.forEach(r=>{
+        const radius=[22,13,7][r.size]*(W/360);
+        if(Math.hypot(ship.x-r.x,ship.y-r.y)<radius){
+          spawnParticles(ship.x,ship.y,'#ff4444',18);
+          lives--;
+          updateHUD();
+          if(lives<=0){
+            gameState='dead';
+            if(score>best){ best=score; localStorage.setItem('ast_best',best); updateHUD(); }
+            setTimeout(()=>{
+              document.getElementById('ov-score').textContent=score;
+              document.getElementById('ov-msg').textContent=score>=500?'Ace pilot!':score>=200?'Nice shooting!':'Watch out for rocks!';
+              document.getElementById('overlay').classList.add('show');
+            },700);
+          } else {
+            ship=makeShip(); invincible=180;
+          }
+        }
+      });
+    }
+
+    // Spawn new wave
+    if(rocks.length===0) rocks=spawnRocks(4+Math.floor(score/80));
+  }
+
+  particles.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.life-=0.022; });
+  particles=particles.filter(p=>p.life>0);
+
+  // Draw
+  ctx.fillStyle='#050508'; ctx.fillRect(0,0,W,H);
+  stars.forEach(s=>{ ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill(); });
+
+  // Rocks
+  rocks.forEach(r=>{
+    ctx.save(); ctx.translate(r.x,r.y); ctx.rotate(r.angle);
+    ctx.shadowColor='#ffaa00'; ctx.shadowBlur=8;
+    ctx.strokeStyle='#ffaa00'; ctx.lineWidth=1.5;
+    ctx.beginPath(); r.pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.stroke();
+    ctx.restore();
+  });
+
+  // Bullets
+  bullets.forEach(b=>{
+    ctx.shadowColor='#ffffff'; ctx.shadowBlur=8;
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath(); ctx.arc(b.x,b.y,3,0,Math.PI*2); ctx.fill();
+  });
+  ctx.shadowBlur=0;
+
+  // Ship
+  if(gameState==='playing'&&(invincible<=0||Math.floor(invincible/5)%2===0)){
+    ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(ship.angle);
+    ctx.shadowColor='#00ccff'; ctx.shadowBlur=16;
+    ctx.strokeStyle='#00ccff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(16,0); ctx.lineTo(-10,-9); ctx.lineTo(-6,0); ctx.lineTo(-10,9); ctx.closePath(); ctx.stroke();
+    if(ctrl.thrust){
+      ctx.strokeStyle='#ff6600'; ctx.shadowColor='#ff6600';
+      ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(-6-Math.random()*14,0); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Particles
+  particles.forEach(p=>{ ctx.globalAlpha=p.life; ctx.fillStyle=p.col; ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill(); });
+  ctx.globalAlpha=1;
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.code==='ArrowLeft') ctrl.left=true;
+  if(e.code==='ArrowRight') ctrl.right=true;
+  if(e.code==='ArrowUp'||e.code==='KeyW') ctrl.thrust=true;
+  if(e.code==='Space'){ e.preventDefault(); fire(); }
+});
+document.addEventListener('keyup',e=>{
+  if(e.code==='ArrowLeft') ctrl.left=false;
+  if(e.code==='ArrowRight') ctrl.right=false;
+  if(e.code==='ArrowUp'||e.code==='KeyW') ctrl.thrust=false;
+});
+
+window.addEventListener('resize',()=>{ resize(); });
+newGame();
+</script>
+</body>
+</html>
