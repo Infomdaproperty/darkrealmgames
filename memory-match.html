@@ -8,73 +8,100 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:#050508;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 30px;user-select:none;-webkit-user-select:none;font-family:'Orbitron',monospace;overflow-x:hidden;}
-h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#aa44ff,#ff44aa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
-.scores{display:flex;gap:16px;margin-bottom:8px;}
-.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(170,68,255,.12);border-radius:6px;padding:3px 14px;}
+h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1rem,5vw,1.8rem);background:linear-gradient(90deg,#44cc22,#88ff44);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.08em;margin-bottom:6px;margin-top:4px;}
+.scores{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;justify-content:center;}
+.score-box{text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(68,200,34,.18);border-radius:6px;padding:3px 10px;}
 .score-label{font-size:.5rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
-.score-val{font-size:1.1rem;color:#aa44ff;letter-spacing:.05em}
-#grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:4px;}
-.card{width:var(--cs);height:var(--cs);perspective:600px;cursor:pointer;}
+.score-val{font-size:1.1rem;color:#66dd44;letter-spacing:.05em}
+#grid{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;padding:4px;max-width:380px;}
+.card{width:var(--cs);height:var(--cs);perspective:600px;cursor:pointer;flex-shrink:0;}
 .card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .35s cubic-bezier(.4,0,.2,1);}
 .card.flipped .card-inner,.card.matched .card-inner{transform:rotateY(180deg);}
-.card-front,.card-back{position:absolute;inset:0;border-radius:8px;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;}
-.card-back{background:linear-gradient(135deg,#1a0a2e,#0a0518);border:1px solid rgba(170,68,255,.3);font-size:1.4rem;}
-.card-back::after{content:'?';font-family:'Orbitron',monospace;color:rgba(170,68,255,.4);font-size:var(--qs);}
-.card-front{background:linear-gradient(135deg,#2a0a4e,#1a0530);border:1px solid rgba(170,68,255,.6);transform:rotateY(180deg);font-size:var(--es);}
-.card.matched .card-front{border-color:#00ff88;box-shadow:0 0 14px rgba(0,255,136,.4);}
+.card-front,.card-back{position:absolute;inset:0;border-radius:6px;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;}
+.card-back{background:linear-gradient(135deg,#0a1a06,#061008);border:2px solid rgba(68,180,34,.35);}
+.card-back::after{content:'?';font-family:'Orbitron',monospace;color:rgba(68,180,34,.4);font-size:var(--qs);}
+.card-front{background:linear-gradient(135deg,#1a3a0a,#0c2206);border:2px solid rgba(68,220,34,.7);transform:rotateY(180deg);font-size:var(--es);}
+.card.matched .card-front{border-color:#ffd460;box-shadow:0 0 14px rgba(255,212,96,.5);}
 .hint{font-size:.55rem;color:rgba(255,255,255,.18);margin-top:6px;letter-spacing:.1em;text-transform:uppercase;text-align:center;}
 #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;}
 #overlay.show{display:flex}
-.ov-box{background:linear-gradient(145deg,#060614,#04040a);border:2px solid #aa44ff;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(170,68,255,.25);}
-.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#aa44ff;margin-bottom:4px}
+.ov-box{background:linear-gradient(145deg,#060a04,#040806);border:2px solid #66dd44;border-radius:14px;padding:28px 24px;text-align:center;max-width:260px;width:88%;box-shadow:0 0 60px rgba(68,200,34,.3);}
+.ov-box h2{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:#66dd44;margin-bottom:4px}
 .ov-box .ov-score{font-size:1.5rem;color:#fff;margin-bottom:4px}
-.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:16px;letter-spacing:.08em}
-.btn{background:linear-gradient(135deg,#180028,#0c0018);border:1px solid #aa44ff;border-radius:8px;color:#aa44ff;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 28px;cursor:pointer;letter-spacing:.08em;transition:transform .15s;}
+.ov-box p{color:rgba(255,255,255,.35);font-size:.7rem;margin-bottom:12px;letter-spacing:.08em}
+.btn{display:block;width:100%;background:linear-gradient(135deg,#0a2004,#061802);border:1px solid #66dd44;border-radius:8px;color:#66dd44;font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;padding:11px 0;cursor:pointer;letter-spacing:.08em;transition:transform .15s;margin-top:8px;}
 .btn:hover{transform:translateY(-2px)}
+.btn-next{background:linear-gradient(135deg,#1a4a08,#0c2a04);border-color:#ffd460;color:#ffd460;}
 </style>
 </head>
 <body>
-<div id="htp-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.87);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif"><div style="background:#0d1117;border:2px solid #7c3aed;border-radius:18px;padding:26px 20px;max-width:320px;width:100%;text-align:center;color:#fff;box-shadow:0 0 50px rgba(124,58,237,.35)"><div style="font-size:2.2rem;margin-bottom:8px">&#127918;</div><h2 style="margin:0 0 12px;font-size:1.15rem;color:#a78bfa;letter-spacing:.02em">How to Play</h2><p style="margin:0 0 18px;font-size:.88rem;line-height:1.65;color:#cbd5e1">Tap two cards to flip them over<br>Match pairs of cards to remove them<br>Clear the board with as few taps as possible!</p><button onclick="document.getElementById('htp-overlay').remove()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px 0;font-size:1rem;font-weight:700;cursor:pointer;width:100%;letter-spacing:.04em">&#9654; Let's Play!</button></div></div>
+<div id="htp-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.87);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif"><div style="background:#0d1117;border:2px solid #7c3aed;border-radius:18px;padding:26px 20px;max-width:320px;width:100%;text-align:center;color:#fff;box-shadow:0 0 50px rgba(124,58,237,.35)"><div style="font-size:2.2rem;margin-bottom:8px">&#9975;&#65039;</div><h2 style="margin:0 0 12px;font-size:1.15rem;color:#a78bfa;letter-spacing:.02em">How to Play</h2><p style="margin:0 0 18px;font-size:.88rem;line-height:1.65;color:#cbd5e1">Tap two cards to flip them<br>Match the Minecraft pairs!<br>Each level adds more cards</p><button onclick="document.getElementById('htp-overlay').remove()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px 0;font-size:1rem;font-weight:700;cursor:pointer;width:100%;letter-spacing:.04em">&#9654; Let's Play!</button></div></div>
 <h1>MEMORY MATCH</h1>
 <div class="scores">
+  <div class="score-box"><div class="score-label">Level</div><div class="score-val" id="el-level">1</div></div>
   <div class="score-box"><div class="score-label">Moves</div><div class="score-val" id="el-moves">0</div></div>
   <div class="score-box"><div class="score-label">Time</div><div class="score-val" id="el-time">0s</div></div>
   <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">-</div></div>
 </div>
 <div id="grid"></div>
-<div class="hint">Find all 8 matching pairs</div>
+<div class="hint" id="el-hint">Find all 3 matching pairs</div>
 <div id="overlay">
   <div class="ov-box">
-    <h2>YOU WIN!</h2>
-    <div class="ov-score" id="ov-score">16 moves, 42s</div>
+    <h2 id="ov-title">LEVEL CLEAR!</h2>
+    <div class="ov-score" id="ov-score">12 moves, 30s</div>
     <p id="ov-msg">Memory master!</p>
+    <button class="btn btn-next" id="btn-next" onclick="nextLevel()">Next Level &#8594;</button>
     <button class="btn" onclick="newGame()">Play Again</button>
   </div>
 </div>
 <script>
-const EMOJIS = ['🌟','⚡','🎮','🔥','💎','🌈','🎯','🚀'];
+const EMOJIS = [
+  '\u26CF\uFE0F','\uD83D\uDC8E','\uD83C\uDF32','\uD83D\uDC37',
+  '\uD83E\uDDF1','\uD83C\uDF3E','\uD83D\uDC2E','\u2694\uFE0F',
+  '\uD83D\uDD25','\uD83D\uDC11','\uD83C\uDF0A','\uD83D\uDD6F\uFE0F',
+  '\uD83E\uDEA8','\uD83E\uDEB5','\uD83C\uDF19','\uD83D\uDC3A',
+  '\uD83C\uDF44','\uD83C\uDF35','\u2744\uFE0F','\uD83E\uDD55',
+  '\uD83C\uDF3D','\uD83C\uDFF9'
+];
 const gridEl = document.getElementById('grid');
-let cards, flipped, matched, moves, startTime, timerEl, timerId, lockBoard;
+let cards, flipped, matched, moves, startTime, timerEl, lockBoard;
+let level, numPairs;
 
 function setSize(){
-  const avail = Math.min(window.innerWidth-40, 360);
-  const cs = Math.floor((avail-3*8)/4);
+  const cols = numPairs <= 3 ? 3 : 4;
+  const avail = Math.min(window.innerWidth-40, 356);
+  const cs = Math.floor((avail - (cols-1)*7) / cols);
   document.documentElement.style.setProperty('--cs', cs+'px');
-  document.documentElement.style.setProperty('--es', Math.round(cs*0.45)+'px');
-  document.documentElement.style.setProperty('--qs', Math.round(cs*0.3)+'px');
+  document.documentElement.style.setProperty('--es', Math.round(cs*0.44)+'px');
+  document.documentElement.style.setProperty('--qs', Math.round(cs*0.28)+'px');
 }
 
 function shuffle(arr){ return arr.sort(()=>Math.random()-.5); }
 
 function newGame(){
   document.getElementById('overlay').classList.remove('show');
-  clearInterval(timerId);
+  level=1;
+  startLevel();
+}
+
+function nextLevel(){
+  document.getElementById('overlay').classList.remove('show');
+  level++;
+  startLevel();
+}
+
+function startLevel(){
+  clearInterval(timerEl);
+  numPairs = Math.min(3+(level-1)*2, EMOJIS.length);
   setSize();
   flipped=[]; matched=0; moves=0; lockBoard=false;
   startTime=null;
   document.getElementById('el-moves').textContent='0';
   document.getElementById('el-time').textContent='0s';
-  const pairs=[...EMOJIS,...EMOJIS];
+  document.getElementById('el-level').textContent=level;
+  document.getElementById('el-hint').textContent='Find all '+numPairs+' matching pairs';
+  const pool=EMOJIS.slice(0,numPairs);
+  const pairs=[...pool,...pool];
   cards=shuffle(pairs).map((emoji,i)=>({emoji,id:i,face:false,done:false}));
   renderGrid();
 }
@@ -84,7 +111,7 @@ function renderGrid(){
   cards.forEach(c=>{
     const div=document.createElement('div');
     div.className='card'+(c.face?' flipped':'')+(c.done?' matched':'');
-    div.innerHTML=`<div class="card-inner"><div class="card-back"></div><div class="card-front">${c.emoji}</div></div>`;
+    div.innerHTML='<div class="card-inner"><div class="card-back"></div><div class="card-front">'+c.emoji+'</div></div>';
     div.addEventListener('click',()=>flip(c.id));
     gridEl.appendChild(div);
   });
@@ -134,18 +161,25 @@ function tick(){
 function win(){
   clearInterval(timerEl);
   const t=Math.floor((Date.now()-startTime)/1000);
-  const best=localStorage.getItem('mem_best');
-  const score=`${moves} moves, ${t}s`;
-  if(!best||moves<+best.split(' ')[0]){ localStorage.setItem('mem_best',score); document.getElementById('el-best').textContent=score; }
-  else{ document.getElementById('el-best').textContent=best; }
+  const sc=moves+' moves, '+t+'s';
+  const prevBest=localStorage.getItem('mem_best');
+  const prevLv=+(prevBest||'0').split('L')[1]||0;
+  if(!prevBest||level>prevLv||(level===prevLv&&moves<+(prevBest.split(' ')[1]||9999))){
+    const record='L'+level+' '+sc;
+    localStorage.setItem('mem_best',record);
+    document.getElementById('el-best').textContent=record;
+  }
   setTimeout(()=>{
-    document.getElementById('ov-score').textContent=score;
-    document.getElementById('ov-msg').textContent=moves<=18?'Memory master!':moves<=25?'Nice memory!':'Keep practicing!';
+    document.getElementById('ov-title').textContent='LEVEL '+level+' CLEAR!';
+    document.getElementById('ov-score').textContent=sc;
+    const par=numPairs*2+4;
+    document.getElementById('ov-msg').textContent=moves<=par?'Memory master!':moves<=par+8?'Nice memory!':'Keep practicing!';
+    document.getElementById('btn-next').style.display = level < EMOJIS.length ? 'block' : 'none';
     document.getElementById('overlay').classList.add('show');
   },400);
 }
 
-window.addEventListener('resize',()=>{ setSize(); });
+window.addEventListener('resize',()=>{ if(numPairs) setSize(); });
 const best=localStorage.getItem('mem_best');
 if(best) document.getElementById('el-best').textContent=best;
 newGame();
