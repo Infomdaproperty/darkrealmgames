@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -51,8 +51,8 @@ const FLAP = -7.5;
 const PIPE_W = 56;
 const BIRD_R = 16;
 const BIRD_X_FRAC = 0.25;
-const PIPE_SPEED_BASE = 2.6;
-const GAP_BASE = 170;
+const PIPE_SPEED_BASE = 2.0;
+const GAP_BASE = 195;
 
 let bird, pipes, clouds, particles, score, best, gameState, raf, pipeTimer, pipeInterval;
 
@@ -93,7 +93,7 @@ function updateHUD(){
 }
 
 function pipeSpeed(){ return PIPE_SPEED_BASE+score*0.07; }
-function pipeGap(){ return Math.max(GAP_BASE-score*2,105); }
+function pipeGap(){ return Math.max(GAP_BASE-score*2,120); }
 
 function spawnPipe(){
   const gap=pipeGap();

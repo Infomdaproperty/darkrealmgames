@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -75,7 +75,7 @@ function newGame(){
   document.getElementById('overlay').classList.remove('show');
   resize();
   tunnelRotation = 0;
-  speed = 3;
+  speed = 2.5;
   score = 0;
   hueOffset = 0;
   best = +(localStorage.getItem('tunnelrush_best') || 0);
@@ -121,7 +121,7 @@ function loop(){
 
     // Advance
     obstacles.forEach(o => o.z -= speed);
-    speed = Math.min(10, 3 + score * 0.012);
+    speed = Math.min(8, 2.5 + score * 0.01);
 
     // Score
     obstacles.forEach(o => {
