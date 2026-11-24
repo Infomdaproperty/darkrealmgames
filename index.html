@@ -3399,29 +3399,6 @@ function renderAll(){
 }
 
 renderAll();
-
-// ===================== GAME DISTRIBUTION SDK =====================
-window.GD_OPTIONS = {
-  gameId: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-  userId: undefined,
-  advertisingEnabled: true,
-  onEvent: function(event) {
-    switch(event.name) {
-      case 'SDK_GAME_START': break;
-      case 'SDK_PAUSE': break;
-      case 'SDK_RESUME': break;
-      case 'SDK_ERROR': break;
-    }
-  }
-};
-(function(d,s,id){
-  var js,fjs=d.getElementsByTagName(s)[0];
-  if(d.getElementById(id)) return;
-  js=d.createElement(s); js.id=id;
-  js.src='//html5.api.gamedistribution.com/main.min.js';
-  fjs.parentNode.insertBefore(js,fjs);
-}(document,'script','gamedistribution-jssdk'));
-
 // ===================== ADSENSE INIT =====================
 window.addEventListener('load',function(){
   try{
