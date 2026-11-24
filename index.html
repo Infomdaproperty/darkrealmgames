@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="ArcadeHub – free browser games. Play instantly. No download, no login.">
-<title>ArcadeHub – Free Online Games</title>
+<meta name="description" content="ArcadeHub â€“ free browser games. Play instantly. No download, no login.">
+<title>ArcadeHub â€“ Free Online Games</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Cinzel+Decorative:wght@700;900&family=Nunito:wght@600;700;800&display=swap">
-<!-- Google AdSense – replace publisher ID before going live -->
+<!-- Google AdSense â€“ replace publisher ID before going live -->
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-REPLACE-WITH-YOUR-PUBLISHER-ID" crossorigin="anonymous"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -61,7 +61,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 }
 .nav-search input:focus{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);}
 .nav-search input::placeholder{color:var(--muted);}
-.nav-search::before{content:'🔍';position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:.85rem;pointer-events:none;}
+.nav-search::before{content:'ðŸ”';position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:.85rem;pointer-events:none;}
 .nav-stats{
   display:flex;gap:20px;flex-shrink:0;
   font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
@@ -158,7 +158,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
   box-shadow:0 4px 18px rgba(255,107,45,.4);transition:transform .18s,box-shadow .18s;
 }
 .featured-play:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(255,107,45,.5);}
-.featured-play::before{content:'▶';font-size:.85rem;}
+.featured-play::before{content:'â–¶';font-size:.85rem;}
 
 /* ---- SECTIONS ---- */
 .section{margin-bottom:28px;}
@@ -189,21 +189,10 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
   border-color:rgba(255,107,45,.3);
   box-shadow:0 12px 36px rgba(0,0,0,.7),0 0 24px rgba(255,107,45,.12);
 }
-.card-thumb{position:relative;width:100%;aspect-ratio:16/10;overflow:hidden;}
-.card-thumb canvas{width:100%;height:100%;display:block;}
-.card-play{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.55);backdrop-filter:blur(2px);opacity:0;transition:opacity .18s;
-}
-.card-play-btn{
-  display:flex;align-items:center;justify-content:center;
-  width:48px;height:48px;border-radius:50%;
-  background:linear-gradient(135deg,var(--orange),var(--pink));
-  box-shadow:0 4px 20px rgba(255,107,45,.5);font-size:1.1rem;
-  transform:scale(.8);transition:transform .18s;
-}
-.game-card:hover .card-play{opacity:1;}
-.game-card:hover .card-play-btn{transform:scale(1);}
+.card-thumb{position:relative;width:100%;aspect-ratio:16/10;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+
+.card-play{display:none;}
+
 .card-body{padding:9px 11px 11px;}
 .card-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px;}
 .tag{
@@ -271,11 +260,11 @@ footer{
 
 <nav class="top-nav">
   <a href="/" class="nav-logo">
-    <div class="nav-logo-icon">🎮</div>
+    <div class="nav-logo-icon">ðŸŽ®</div>
     ARCADEHUB
   </a>
   <div class="nav-search">
-    <input type="search" id="search-input" placeholder="Search games…" autocomplete="off">
+    <input type="search" id="search-input" placeholder="Search gamesâ€¦" autocomplete="off">
   </div>
   <div class="nav-stats">
     <div><strong id="stat-count">43</strong>Games</div>
@@ -284,15 +273,15 @@ footer{
 </nav>
 
 <div class="cat-strip" id="cat-strip">
-  <button class="cat-btn active" data-cat="all">🕹️ All Games</button>
-  <button class="cat-btn" data-cat="new">✨ New</button>
-  <button class="cat-btn" data-cat="action">⚡ Action</button>
-  <button class="cat-btn" data-cat="puzzle">🧩 Puzzle</button>
-  <button class="cat-btn" data-cat="classic">👾 Classic</button>
-  <button class="cat-btn" data-cat="racing">🏎️ Racing</button>
-  <button class="cat-btn" data-cat="sports">⚽ Sports</button>
-  <button class="cat-btn" data-cat="word">📝 Word</button>
-  <button class="cat-btn" data-cat="kids">🌟 Kids</button>
+  <button class="cat-btn active" data-cat="all">ðŸ•¹ï¸ All Games</button>
+  <button class="cat-btn" data-cat="new">âœ¨ New</button>
+  <button class="cat-btn" data-cat="action">âš¡ Action</button>
+  <button class="cat-btn" data-cat="puzzle">ðŸ§© Puzzle</button>
+  <button class="cat-btn" data-cat="classic">ðŸ‘¾ Classic</button>
+  <button class="cat-btn" data-cat="racing">ðŸŽï¸ Racing</button>
+  <button class="cat-btn" data-cat="sports">âš½ Sports</button>
+  <button class="cat-btn" data-cat="word">ðŸ“ Word</button>
+  <button class="cat-btn" data-cat="kids">ðŸŒŸ Kids</button>
 </div>
 
 <div class="ad-top">
@@ -309,15 +298,15 @@ footer{
   <aside class="sidebar">
     <div>
       <div class="sidebar-title">Categories</div>
-      <button class="sidebar-cat active" data-cat="all"><span class="sidebar-cat-icon">🕹️</span>All Games</button>
-      <button class="sidebar-cat" data-cat="action"><span class="sidebar-cat-icon">⚡</span>Action</button>
-      <button class="sidebar-cat" data-cat="puzzle"><span class="sidebar-cat-icon">🧩</span>Puzzle</button>
-      <button class="sidebar-cat" data-cat="classic"><span class="sidebar-cat-icon">👾</span>Classic</button>
-      <button class="sidebar-cat" data-cat="racing"><span class="sidebar-cat-icon">🏎️</span>Racing</button>
-      <button class="sidebar-cat" data-cat="sports"><span class="sidebar-cat-icon">⚽</span>Sports</button>
-      <button class="sidebar-cat" data-cat="word"><span class="sidebar-cat-icon">📝</span>Word</button>
-      <button class="sidebar-cat" data-cat="kids"><span class="sidebar-cat-icon">🌟</span>Kids</button>
-      <button class="sidebar-cat" data-cat="new"><span class="sidebar-cat-icon">✨</span>New</button>
+      <button class="sidebar-cat active" data-cat="all"><span class="sidebar-cat-icon">ðŸ•¹ï¸</span>All Games</button>
+      <button class="sidebar-cat" data-cat="action"><span class="sidebar-cat-icon">âš¡</span>Action</button>
+      <button class="sidebar-cat" data-cat="puzzle"><span class="sidebar-cat-icon">ðŸ§©</span>Puzzle</button>
+      <button class="sidebar-cat" data-cat="classic"><span class="sidebar-cat-icon">ðŸ‘¾</span>Classic</button>
+      <button class="sidebar-cat" data-cat="racing"><span class="sidebar-cat-icon">ðŸŽï¸</span>Racing</button>
+      <button class="sidebar-cat" data-cat="sports"><span class="sidebar-cat-icon">âš½</span>Sports</button>
+      <button class="sidebar-cat" data-cat="word"><span class="sidebar-cat-icon">ðŸ“</span>Word</button>
+      <button class="sidebar-cat" data-cat="kids"><span class="sidebar-cat-icon">ðŸŒŸ</span>Kids</button>
+      <button class="sidebar-cat" data-cat="new"><span class="sidebar-cat-icon">âœ¨</span>New</button>
     </div>
     <div class="sidebar-ad">
       <span class="ad-label">Advertisement</span>
@@ -334,7 +323,7 @@ footer{
 
     <div class="section" id="new-section">
       <div class="section-header">
-        <h2>✨ New Games</h2>
+        <h2>âœ¨ New Games</h2>
         <span class="section-count" id="new-count">10 games</span>
       </div>
       <div class="card-grid" id="new-grid"></div>
@@ -352,7 +341,7 @@ footer{
 
     <div class="section" id="all-section">
       <div class="section-header">
-        <h2>🕹️ All Games</h2>
+        <h2>ðŸ•¹ï¸ All Games</h2>
         <span class="section-count" id="all-count">33 games</span>
       </div>
       <div class="card-grid" id="all-grid"></div>
@@ -482,6 +471,15 @@ const RATINGS=[4.5,4.2,4.8,3.9,4.6,4.3,4.7,4.1,4.4,4.0,4.9,3.8];
 const PLAY_COUNTS=['12.4k','8.7k','21k','5.2k','16.3k','9.8k','31k','4.1k','7.6k','18.5k','11k','6.3k'];
 const HOT_KEYS=['darkRealm','neonBrawl','spaceBlaster','snake','frogger','tunnelRush','asteroids','helixJump'];
 
+const CAT_THEME = {
+  action:  {icon:'⚡', bg:'135deg,#1a1a2e 0%,#16213e 100%'},
+  puzzle:  {icon:'🧩', bg:'135deg,#1a0a2e 0%,#2d1b69 100%'},
+  racing:  {icon:'🏎️', bg:'135deg,#0f2027 0%,#2c5364 100%'},
+  sports:  {icon:'⚽', bg:'135deg,#134e5e 0%,#71b280 100%'},
+  classic: {icon:'🕹', bg:'135deg,#1f1c2c 0%,#928dab 100%'},
+  kids:    {icon:'🌟', bg:'135deg,#ff9a9e 0%,#fad0c4 100%'},
+  word:    {icon:'💬', bg:'135deg,#4facfe 0%,#00f2fe 100%'},
+};
 function makeCard(g, isNew){
   const a = document.createElement('a');
   a.className='game-card';
@@ -490,13 +488,14 @@ function makeCard(g, isNew){
   const rIdx=g.draw.charCodeAt(0)%RATINGS.length;
   const rating=RATINGS[rIdx];
   const fullStars=Math.floor(rating);
-  const starsHtml='★'.repeat(fullStars)+'☆'.repeat(5-fullStars);
+  const starsHtml='â˜…'.repeat(fullStars)+'â˜†'.repeat(5-fullStars);
   const plays=PLAY_COUNTS[g.draw.charCodeAt(1)%PLAY_COUNTS.length];
   const isHot=HOT_KEYS.includes(g.draw);
+  const theme = CAT_THEME[g.cats[0]] || CAT_THEME.action;
   a.innerHTML=`
-    <div class="card-thumb">
-      <canvas width="400" height="250"></canvas>
-      <div class="card-play"><div class="card-play-btn">▶</div></div>
+    <div class="card-thumb" style="background:linear-gradient(${theme.bg})">
+      <span style="font-size:3rem;line-height:1;user-select:none;pointer-events:none">${theme.icon}</span>
+
     </div>
     <div class="card-body">
       <div class="card-tags">${tags}</div>
@@ -507,10 +506,8 @@ function makeCard(g, isNew){
       </div>
     </div>
     ${isNew?'<span class="badge-new">New</span>':''}
-    ${isHot?'<span class="badge-hot">🔥 Hot</span>':''}
+    ${isHot?'<span class="badge-hot">ðŸ”¥ Hot</span>':''}
   `;
-  const cv=a.querySelector('canvas');
-  startAnim(cv, g.draw);
   return a;
 }
 
@@ -695,7 +692,7 @@ ANIM.skyJump = function(ctx,W,H,f){
 ANIM.solitaire = function(ctx,W,H,f){
   bg(ctx,W,H,'#063010','#0a4018');
   for(let x=0;x<W;x+=6) for(let y=0;y<H;y+=6){if((x+y)%12===0){ctx.fillStyle='rgba(0,0,0,.08)';ctx.fillRect(x,y,2,2);}}
-  const suits=['♠','♥','♦','♣'],suitCols=['#ddd','#cc2244','#cc2244','#ddd'],ranks=['A','K','Q','J','10'];
+  const suits=['â™ ','â™¥','â™¦','â™£'],suitCols=['#ddd','#cc2244','#cc2244','#ddd'],ranks=['A','K','Q','J','10'];
   const cw=Math.round(W*.17), ch=Math.round(cw*1.4);
   for(let i=0;i<4;i++){
     const fx=W*.14+i*(W*.23), fy=10;
@@ -1283,7 +1280,7 @@ ANIM.memoryMatch = function(ctx,W,H,f){
   const cols=4, rows=3, total=cols*rows;
   const cw=W*.19, ch=H*.24, padX=(W-cols*cw)/(cols+1), padY=(H-.06*H-rows*ch)/(rows+1);
   // Symbol pairs (6 pairs for 12 cards)
-  const symbols=['♠','♥','♦','♣','★','♫','♠','♥','♦','♣','★','♫'];
+  const symbols=['â™ ','â™¥','â™¦','â™£','â˜…','â™«','â™ ','â™¥','â™¦','â™£','â˜…','â™«'];
   const symColors=['#aaddff','#ff6680','#ff9944','#aaddff','#ffee44','#cc88ff','#aaddff','#ff6680','#ff9944','#aaddff','#ffee44','#cc88ff'];
   // Animate: cycle through revealing pairs
   const revealCycle=Math.floor(f/90)%6;
@@ -1860,7 +1857,7 @@ ANIM.brickBreaker = function(ctx,W,H,f){
   ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillText(`${Math.floor(f*2)*50}`, 10, 8);
   ctx.textAlign='right';
-  ctx.fillText('♥ ♥ ♥', W-10, 8);
+  ctx.fillText('â™¥ â™¥ â™¥', W-10, 8);
 };
 
 ANIM.tapFly = function(ctx,W,H,f){
@@ -2162,7 +2159,7 @@ ANIM.dodge = function(ctx,W,H,f){
   ctx.fillText(`ALIVE: ${Math.floor(f*.05)}s`, 10, 8);
   ctx.textAlign='right';
   ctx.fillStyle='rgba(0,220,255,.7)';
-  ctx.fillText('HP ♥♥♥', W-10, 8);
+  ctx.fillText('HP â™¥â™¥â™¥', W-10, 8);
 };
 
 ANIM.asteroidDash = function(ctx,W,H,f){
@@ -2232,7 +2229,7 @@ ANIM.asteroidDash = function(ctx,W,H,f){
   ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillText(`DASH: ${Math.floor(f*.12)}m`, 10, 8);
   ctx.textAlign='right';
-  ctx.fillText(`★ ${Math.floor(f*.03)}`, W-10, 8);
+  ctx.fillText(`â˜… ${Math.floor(f*.03)}`, W-10, 8);
 };
 
 ANIM.colorCatch = function(ctx,W,H,f){
@@ -2682,7 +2679,7 @@ ANIM.pianoTiles = function(ctx,W,H,f){
       // Note particle
       ctx.fillStyle='rgba(220,200,255,.7)'; ctx.font='bold 12px sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      const notes=['♩','♪','♫','♬'];
+      const notes=['â™©','â™ª','â™«','â™¬'];
       ctx.fillText(notes[col], tx+cw/2, H-whiteH-20);
     }
   });
@@ -3370,7 +3367,7 @@ function renderFeatured(game){
           <canvas width="400" height="250"></canvas>
         </div>
         <div class="featured-info">
-          <div class="featured-label">⭐ Featured Game</div>
+          <div class="featured-label">â­ Featured Game</div>
           <div class="featured-title">${game.name}</div>
           <div class="featured-tags">
             ${game.tags.map(t=>`<span class="tag" style="${tagStyle(t)}">${t}</span>`).join('')}
