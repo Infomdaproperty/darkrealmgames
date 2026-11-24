@@ -30,6 +30,7 @@ canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(68,255,136,.18),
 <h1>DINO JUMP</h1>
 <div class="scores">
   <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Level</div><div class="score-val" id="el-level">1</div></div>
   <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
 </div>
 <canvas id="cv"></canvas>
@@ -63,7 +64,7 @@ function newGame(){
   obstacles=[]; particles=[];
   clouds=Array.from({length:4},()=>({x:Math.random()*W, y:Math.random()*H*0.4+10, w:40+Math.random()*40, speed:0.4+Math.random()*0.3}));
   score=0; best=+(localStorage.getItem('dino_best')||0);
-  speed=2.5; spawnTimer=0; spawnInterval=90;
+  speed=1.4; spawnTimer=0; spawnInterval=130;
   gameState='idle';
   updateHUD();
   cancelAnimationFrame(raf); lastTime=0;
@@ -106,15 +107,16 @@ function loop(ts){
     if(spawnTimer>=spawnInterval){
       spawnObstacle();
       spawnTimer=0;
-      spawnInterval=Math.max(50, 90-score*0.3);
     }
     obstacles.forEach(o=>o.x-=speed);
     obstacles=obstacles.filter(o=>o.x+o.w>-10);
 
     // Score
     score++;
-    speed=2.5+score*0.003;
-    if(score%100===0) updateHUD();
+    speed=1.4+score*0.0015;
+    const lv=Math.floor(score/200)+1;
+    if(score%50===0){document.getElementById('el-score').textContent=score;document.getElementById('el-level').textContent=lv;}
+    spawnInterval=Math.max(80,130-score*0.15);
 
     // Collision
     obstacles.forEach(o=>{

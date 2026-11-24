@@ -29,6 +29,7 @@ canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(68,255,136,.18);
 <div id="htp-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.87);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif"><div style="background:#0d1117;border:2px solid #7c3aed;border-radius:18px;padding:26px 20px;max-width:320px;width:100%;text-align:center;color:#fff;box-shadow:0 0 50px rgba(124,58,237,.35)"><div style="font-size:2.2rem;margin-bottom:8px">&#127918;</div><h2 style="margin:0 0 12px;font-size:1.15rem;color:#a78bfa;letter-spacing:.02em">How to Play</h2><p style="margin:0 0 18px;font-size:.88rem;line-height:1.65;color:#cbd5e1">Swipe or tap to aim and kick the ball<br>Score past the goalkeeper<br>Don't miss the net!</p><button onclick="document.getElementById('htp-overlay').remove()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px 0;font-size:1rem;font-weight:700;cursor:pointer;width:100%;letter-spacing:.04em">&#9654; Let's Play!</button></div></div>
 <h1>PENALTY FEVER</h1>
 <div class="scores">
+  <div class="score-box"><div class="score-label">Level</div><div class="score-val" id="el-level">1</div></div>
   <div class="score-box"><div class="score-label">Goals</div><div class="score-val" id="el-goals">0</div></div>
   <div class="score-box"><div class="score-label">Kick</div><div class="score-val" id="el-kick">1/5</div></div>
   <div class="score-box"><div class="score-label">Saves</div><div class="score-val" id="el-saves">0</div></div>
@@ -40,14 +41,15 @@ canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(68,255,136,.18);
     <h2 id="ov-title">FULL TIME!</h2>
     <div class="ov-score" id="ov-score">0 / 5</div>
     <p id="ov-msg">Shoot again!</p>
-    <button class="btn" onclick="newGame()">Play Again</button>
+    <button class="btn" id="btn-next" onclick="nextLevel()" style="display:none;margin-bottom:8px">Next Level &#8594;</button>
+    <button class="btn" id="btn-replay" onclick="newGame()">Play Again</button>
   </div>
 </div>
 <script>
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 let W,H;
 let aimX,aimY,power,charging,ball,gk,particles;
-let goals,saves,kick,gameState,raf;
+let goals,saves,kick,gameState,raf,level,gkName,roundGoals,bestLevel;
 let GW,GH,GX,GY;
 
 function resize(){
@@ -66,7 +68,7 @@ function newGame(){
   ball={x:W/2,y:H*0.78,r:12,vx:0,vy:0,flying:false};
   gk={x:W/2,y:GY+GH*0.7,w:22,h:36,vx:0,jumping:false,jumpDir:0};
   particles=[];
-  goals=0; saves=0; kick=1;
+  goals=0; saves=0; kick=1; level=1; gkName=Math.random()<0.5?"M":"R"; roundGoals=0; bestLevel=+(localStorage.getItem("pfbest")||0);
   gameState='ready';
   updateHUD();
   cancelAnimationFrame(raf);
@@ -95,10 +97,13 @@ function kickBall(){
   ball.flying=true;
   power=0; charging=false;
   gameState='flying';
-  // GK jumps random direction
-  gk.jumpDir=(Math.random()<0.5?-1:1);
+  // GK intelligence: level 1=10% track, level5=70% track
+  const trackChance=0.1+(level-1)*0.14;
+  const ballGoesRight=aimX>W/2;
+  const tracks=Math.random()<trackChance;
+  gk.jumpDir=tracks?(ballGoesRight?1:-1):(Math.random()<0.5?-1:1);
   gk.jumping=true;
-  gk.vx=gk.jumpDir*4;
+  gk.vx=gk.jumpDir*(2.5+level*0.55);
 }
 
 function loop(){
@@ -153,13 +158,8 @@ function loop(){
   for(let ny=GY;ny<=GY+GH;ny+=GH/4){ctx.beginPath();ctx.moveTo(GX,ny);ctx.lineTo(GX+GW,ny);ctx.stroke();}
   ctx.shadowBlur=0;
 
-  // GK
-  ctx.save();ctx.translate(gk.x,gk.y);
-  ctx.fillStyle='#ff8800';
-  ctx.fillRect(-gk.w/2,-gk.h/2,gk.w,gk.h);
-  ctx.fillStyle='rgba(255,255,255,.3)';
-  ctx.fillRect(-gk.w/2,-gk.h/2,gk.w,gk.h*0.3);
-  ctx.restore();
+  // GK - cartoon player
+  drawGK(gk.x,gk.y,gk.w,gk.h,gkName);
 
   // Aim line
   if(gameState==='ready'){
@@ -207,15 +207,29 @@ function loop(){
   }
 }
 
+function nextLevel(){
+  document.getElementById('overlay').classList.remove('show');
+  level++;
+  gkName=Math.random()<0.5?'M':'R';
+  kick=1; goals=0; saves=0; roundGoals=0;
+  ball={x:W/2,y:H*0.78,r:12,vx:0,vy:0,flying:false};
+  gk={x:W/2,y:GY+GH*0.7,w:22,h:36,vx:0,jumping:false,jumpDir:0};
+  gameState='ready'; updateHUD();
+}
 function resolveKick(scored){
+  if(scored)roundGoals++;
   gameState='result';
   updateHUD();
   setTimeout(()=>{
     if(kick>=5){
       setTimeout(()=>{
-        document.getElementById('ov-title').textContent='FULL TIME!';
-        document.getElementById('ov-score').textContent=`${goals} / 5 goals`;
-        document.getElementById('ov-msg').textContent=goals>=4?'Legend!':goals>=2?'Decent shooter!':'Shoot again!';
+        const won=roundGoals>=1;
+        if(won&&level>bestLevel){bestLevel=level;localStorage.setItem('pfbest',bestLevel);}
+        document.getElementById('ov-title').textContent=won?'LEVEL COMPLETE!':'GAME OVER';
+        document.getElementById('ov-score').textContent=`${roundGoals}/5 goals - Level ${level}`;
+        document.getElementById('ov-msg').textContent=won?(roundGoals>=4?'Unstoppable!':roundGoals>=2?'Nice shooting!':'Barely made it!'): (level>1?`Reached Level ${level}!`:'Try again!');
+        document.getElementById('btn-next').style.display=won?'':'none';
+        document.getElementById('btn-replay').textContent=won?'Restart':'Try Again';
         document.getElementById('overlay').classList.add('show');
       },200);
     } else {
@@ -227,6 +241,50 @@ function resolveKick(scored){
   },1000);
 }
 
+function drawGK(x,y,w,h,name){
+  ctx.save();ctx.translate(x,y);
+  const isM=name==='M';
+  const jcol=isM?'#1a56db':'#cc1111';
+  const skin='#f5c89a'; const hair=isM?'#4a2000':'#111';
+  // shorts
+  ctx.fillStyle='#111';ctx.fillRect(-w/2,h*0.08,w,h*0.32);
+  // socks & shin guards
+  ctx.fillStyle=isM?'#ffffff':'#ffcc00';
+  ctx.fillRect(-w/2+2,h*0.4,w*0.42,h*0.3);
+  ctx.fillRect(w*0.08,h*0.4,w*0.42,h*0.3);
+  // boots
+  ctx.fillStyle='#111111';
+  ctx.fillRect(-w/2,h*0.68,w*0.44,h*0.1);
+  ctx.fillRect(w*0.06,h*0.68,w*0.44,h*0.1);
+  // jersey body
+  ctx.fillStyle=jcol;ctx.fillRect(-w/2,-h*0.2,w,h*0.3);
+  // arms spread wide
+  ctx.fillStyle=jcol;
+  ctx.fillRect(-w*1.1,-h*0.18,w*0.62,h*0.11);
+  ctx.fillRect(w*0.5,-h*0.18,w*0.62,h*0.11);
+  // gloves
+  ctx.fillStyle='#ffdd44';
+  ctx.beginPath();ctx.arc(-w*1.08,-h*0.13,w*0.22,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(w*1.08,-h*0.13,w*0.22,0,Math.PI*2);ctx.fill();
+  // neck
+  ctx.fillStyle=skin;ctx.fillRect(-w*0.18,-h*0.26,w*0.36,h*0.1);
+  // head
+  ctx.fillStyle=skin;ctx.beginPath();ctx.arc(0,-h*0.42,w*0.52,0,Math.PI*2);ctx.fill();
+  // hair
+  ctx.fillStyle=hair;ctx.beginPath();ctx.arc(0,-h*0.42,w*0.52,Math.PI,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(0,-h*0.42,w*0.52,Math.PI*1.1,Math.PI*1.9);
+  ctx.lineTo(0,-h*0.52);ctx.closePath();ctx.fill();
+  // eyes
+  ctx.fillStyle='#333';
+  ctx.beginPath();ctx.arc(-w*0.17,-h*0.4,2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(w*0.17,-h*0.4,2,0,Math.PI*2);ctx.fill();
+  // jersey number
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  ctx.font=`bold ${Math.round(w*0.55)}px 'Orbitron',monospace`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(isM?'10':'7',0,-h*0.07);
+  ctx.restore();
+}
 cv.addEventListener('mousemove',e=>{
   if(gameState!=='ready')return;
   const r=cv.getBoundingClientRect();

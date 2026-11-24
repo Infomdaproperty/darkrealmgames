@@ -33,6 +33,7 @@ canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(255,154,96,.18);
 <h1>LIL CHEF</h1>
 <div class="scores">
   <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
+  <div class="score-box"><div class="score-label">Level</div><div class="score-val" id="el-level">1</div></div>
   <div class="score-box"><div class="score-label">Time</div><div class="score-val" id="el-time">60</div></div>
   <div class="score-box"><div class="score-label">Misses</div><div class="score-val" id="el-miss">0</div></div>
   <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
@@ -98,6 +99,7 @@ function newGame(){
 
 function updateHUD(){
   document.getElementById('el-score').textContent=score;
+  document.getElementById('el-level').textContent=level;
   document.getElementById('el-miss').textContent=misses;
   document.getElementById('el-best').textContent=best;
 }
@@ -111,7 +113,7 @@ function spawnParticles(x,y,col,n=8){
 
 function spawnItem(){
   const ing=INGREDIENTS[Math.floor(Math.random()*INGREDIENTS.length)];
-  items.push({x:Math.random()*(W-40)+20,y:-30,r:16,vy:2+Math.random()*2,ing});
+  items.push({x:Math.random()*(W-40)+20,y:-30,r:16,vy:(0.9+Math.random()*0.6)*(1+level*0.12),ing});
 }
 
 const keys={};
@@ -153,7 +155,7 @@ function loop(){
   raf=requestAnimationFrame(loop);
   if(gameState==='playing'){
     spawnTimer++;
-    if(spawnTimer%40===0)spawnItem();
+    const spawnRate=Math.max(28,55-level*3); if(spawnTimer%spawnRate===0)spawnItem();
     // Pan movement
     const spd=5;
     if(keys['ArrowLeft']||keys['KeyA'])pan.x=Math.max(pan.w/2,pan.x-spd);
