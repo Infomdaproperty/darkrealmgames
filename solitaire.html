@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -102,7 +102,7 @@ function resize(){
 
 // === CARD DATA ===
 const SUITS = ['C','D','H','S']; // Clubs Diamonds Hearts Spades
-const SUIT_SYM = {C:'♣',D:'♦',H:'♥',S:'♠'};
+const SUIT_SYM = {C:'â™£',D:'â™¦',H:'â™¥',S:'â™ '};
 const SUIT_COLOR = {C:'#1a1a2a',D:'#cc1111',H:'#cc1111',S:'#1a1a2a'};
 const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const IS_RED = s => s==='D'||s==='H';
@@ -125,7 +125,7 @@ let drag = null; // {cards, fromPile, fromIdx, startX, startY, curX, curY}
 function newGame(){
   resize();
   const d = shuffle(deck());
-  stock = d.slice(21);
+  stock = d.slice(28);
   waste = [];
   foundations = [[],[],[],[]];
   tableau = [];
@@ -447,7 +447,7 @@ function drawScene(){
   if(stock.length>0){
     for(let i=Math.min(2,stock.length-1);i>=0;i--) drawCard(sp.x,sp.y,{face:false});
   } else {
-    drawEmptySlot(sp.x,sp.y,'↺');
+    drawEmptySlot(sp.x,sp.y,'â†º');
   }
 
   // Waste
@@ -463,7 +463,7 @@ function drawScene(){
   }
 
   // Foundations
-  const foundLabels=['♣','♦','♥','♠'];
+  const foundLabels=['â™£','â™¦','â™¥','â™ '];
   for(let i=0;i<4;i++){
     const fp=foundPos(i);
     if(foundations[i].length===0) drawEmptySlot(fp.x,fp.y,foundLabels[i]);
