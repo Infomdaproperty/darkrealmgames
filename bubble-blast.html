@@ -48,16 +48,16 @@ const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 let W,H;
 const COLS=7,ROWS=6;
 const COLORS=['#ff4444','#4488ff','#44cc44','#ffee00','#cc44ff'];
-let BR,BPAD,GRID_Y,LAUNCH_X,LAUNCH_Y;
+let BR,BPAD,GRID_Y,LAUNCH_X,LAUNCH_Y,nextBulletColor;
 let grid,bullet,particles,aimAngle;
 let score,shots,best,gameState,raf;
 
 function resize(){
-  const a=Math.min(window.innerWidth-20,340);
+  const a=Math.min(window.innerWidth-8,400);
   W=a; H=Math.round(a*1.6);
   cv.width=W; cv.height=H;
-  BR=Math.round(W/(COLS*2+1));
-  BPAD=2;
+  BR=Math.floor((W-10)/(COLS*2+1));
+  BPAD=0;
   GRID_Y=Math.round(H*0.06);
   LAUNCH_X=W/2;
   LAUNCH_Y=H-40;
@@ -84,6 +84,7 @@ function newGame(){
   grid=makeGrid();
   bullet=null; particles=[];
   aimAngle=-Math.PI/2;
+  nextBulletColor=randColor();
   score=0; shots=0;
   best=+(localStorage.getItem('bubbleb_best')||0);
   gameState='playing';
@@ -108,7 +109,7 @@ function spawnParticles(x,y,col,n=8){
 function shoot(angle){
   if(bullet||gameState!=='playing')return;
   shots++;
-  const col=randColor();
+  const col=nextBulletColor; nextBulletColor=randColor();
   bullet={x:LAUNCH_X,y:LAUNCH_Y,vx:Math.cos(angle)*7,vy:Math.sin(angle)*7,color:col,r:BR};
   updateHUD();
   // Add row every 10 shots
@@ -235,9 +236,12 @@ function loop(){
     ctx.lineTo(LAUNCH_X+Math.cos(aimAngle)*120,LAUNCH_Y+Math.sin(aimAngle)*120);
     ctx.stroke();ctx.setLineDash([]);
     // Next bubble preview
-    ctx.shadowColor='#ff4fa0';ctx.shadowBlur=12;
+    ctx.shadowColor=nextBulletColor;ctx.shadowBlur=12;
     ctx.beginPath();ctx.arc(LAUNCH_X,LAUNCH_Y,BR,0,Math.PI*2);
-    ctx.fillStyle='#ff4fa0';ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle=nextBulletColor;ctx.fill();ctx.shadowBlur=0;
+    // ''SHOOT'' label
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.font=old px Orbitron,monospace;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('SHOOT',LAUNCH_X,LAUNCH_Y);
   }
 
   // Bullet

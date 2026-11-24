@@ -34,6 +34,7 @@ canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(255,212,96,.18);
 <div class="scores">
   <div class="score-box"><div class="score-label">Score</div><div class="score-val" id="el-score">0</div></div>
   <div class="score-box"><div class="score-label">Lives</div><div class="score-val" id="el-lives">3</div></div>
+  <div class="score-box"><div class="score-label">Level</div><div class="score-val" id="el-level">1</div></div>
   <div class="score-box"><div class="score-label">Best</div><div class="score-val" id="el-best">0</div></div>
 </div>
 <canvas id="cv"></canvas>
@@ -54,7 +55,7 @@ canvas{display:block;border-radius:6px;box-shadow:0 0 40px rgba(255,212,96,.18);
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 let W,H;
 let player,enemies,coins,particles,roadLines;
-let score,lives,best,speed,gameState,raf,dist;
+let score,lives,best,speed,level,gameState,raf,dist;
 
 const LANE_COUNT=3;
 let LANE_W,ROAD_L,ROAD_R;
@@ -75,7 +76,7 @@ function newGame(){
   player={lane:1,x:getLaneX(1),y:H*0.78,w:28,h:44,invincible:0};
   enemies=[]; coins=[]; particles=[];
   roadLines=Array.from({length:12},(_,i)=>({y:i*(H/6)}));
-  score=0; dist=0; lives=3; speed=4;
+  score=0; dist=0; lives=3; speed=1.8; level=1;
   best=+(localStorage.getItem('roadrush_best')||0);
   gameState='playing';
   updateHUD();
@@ -86,6 +87,7 @@ function newGame(){
 function updateHUD(){
   document.getElementById('el-score').textContent=score;
   document.getElementById('el-lives').textContent=lives;
+  document.getElementById('el-level').textContent=level;
   document.getElementById('el-best').textContent=best;
 }
 
@@ -168,11 +170,12 @@ function loop(){
   raf=requestAnimationFrame(loop);
   if(gameState==='playing'){
     dist++;
-    speed=4+dist*0.001;
+    level=Math.floor(dist/400)+1;
+    speed=1.8+(level-1)*0.6;
     if(dist%10===0){score=Math.floor(dist/10);updateHUD();}
-    // Spawn
-    if(dist%Math.round(80/speed+10)===0)spawnEnemy();
-    if(dist%150===0)spawnCoin();
+    // Spawn - fewer cars, rate tied to level
+    if(dist%Math.max(Math.round(260/level),65)===0)spawnEnemy();
+    if(dist%200===0)spawnCoin();
     // Road lines
     roadLines.forEach(l=>{l.y+=speed;if(l.y>H)l.y-=H;});
     // Enemies

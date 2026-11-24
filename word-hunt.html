@@ -7,464 +7,273 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito:wght@700;800;900&display=swap">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{
-  background:radial-gradient(ellipse at top,#1a0a2e 0%,#07050f 100%);
-  color:#fff;
-  font-family:'Nunito',sans-serif;
-  min-height:100vh;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding:10px 12px 20px;
-  user-select:none;
-  -webkit-user-select:none;
-  overflow-x:hidden;
-}
-h1{
-  font-family:'Cinzel',serif;
-  font-size:clamp(1.3rem,5.5vw,2rem);
-  color:#f0c060;
-  text-shadow:0 0 20px rgba(240,192,96,.4);
-  letter-spacing:.1em;
-  margin-bottom:8px;
-}
-.top-row{display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap;justify-content:center;align-items:center}
-.stat{background:rgba(255,255,255,.07);border:1px solid rgba(240,192,96,.2);border-radius:8px;padding:4px 14px;text-align:center}
-.stat-label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4)}
-.stat-val{font-size:1.2rem;font-weight:900;color:#f0c060}
-#timer-ring{width:46px;height:46px}
-#word-display{
-  font-size:clamp(1.2rem,5vw,1.7rem);
-  font-weight:900;
-  letter-spacing:.12em;
-  color:#fff;
-  text-transform:uppercase;
-  min-height:2rem;
-  margin-bottom:6px;
-  text-shadow:0 0 16px rgba(240,192,96,.5);
-  transition:color .15s;
-}
-#word-display.valid{color:#6affb0}
-#word-display.used{color:#ff6b6b}
-.grid-wrap{position:relative;touch-action:none;margin-bottom:10px}
-canvas#cv{display:block;cursor:pointer;border-radius:12px;overflow:hidden}
-.found-panel{
-  width:100%;
-  max-width:360px;
-  background:rgba(255,255,255,.05);
-  border:1px solid rgba(240,192,96,.15);
-  border-radius:10px;
-  padding:8px 12px;
-  min-height:40px;
-  max-height:90px;
-  overflow-y:auto;
-}
-.found-panel h3{font-size:.65rem;letter-spacing:.12em;color:rgba(255,255,255,.35);text-transform:uppercase;margin-bottom:4px}
-.words-list{display:flex;flex-wrap:wrap;gap:4px}
-.word-chip{
-  background:rgba(106,255,176,.12);
-  border:1px solid rgba(106,255,176,.3);
-  border-radius:4px;
-  padding:1px 7px;
-  font-size:.72rem;
-  font-weight:700;
-  color:#6affb0;
-  text-transform:uppercase;
-  letter-spacing:.06em;
-}
-#overlay{
-  display:none;
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.85);
-  backdrop-filter:blur(6px);
-  z-index:100;
-  align-items:center;
-  justify-content:center;
-}
-#overlay.show{display:flex}
-.ov-box{
-  background:linear-gradient(145deg,#1a0a2e,#07050f);
-  border:2px solid #f0c060;
-  border-radius:16px;
-  padding:32px 28px;
-  text-align:center;
-  max-width:280px;
-  width:88%;
-  box-shadow:0 0 60px rgba(240,192,96,.3);
-}
-.ov-box h2{font-family:'Cinzel',serif;font-size:1.8rem;color:#f0c060;margin-bottom:10px}
-.ov-score{font-size:2.4rem;font-weight:900;color:#fff;display:block;margin:8px 0 20px}
-.btn{
-  background:linear-gradient(135deg,#f0c060,#c8880a);
-  border:none;
-  border-radius:10px;
-  color:#1a0a2e;
-  font-family:'Cinzel',serif;
-  font-size:.95rem;
-  font-weight:700;
-  padding:12px 32px;
-  cursor:pointer;
-  letter-spacing:.06em;
-  transition:transform .15s,box-shadow .15s;
-}
-.btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(240,192,96,.35)}
+body{background:radial-gradient(ellipse at top,#1a0a2e 0%,#07050f 100%);color:#fff;font-family:'Nunito',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px 10px 24px;user-select:none;-webkit-user-select:none;overflow-x:hidden;}
+h1{font-family:'Cinzel',serif;font-size:clamp(1.1rem,5vw,1.8rem);color:#f0c060;text-shadow:0 0 20px rgba(240,192,96,.4);letter-spacing:.08em;margin-bottom:6px;}
+.top-bar{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;justify-content:center;align-items:center;}
+.stat{background:rgba(255,255,255,.07);border:1px solid rgba(240,192,96,.2);border-radius:8px;padding:4px 12px;text-align:center;}
+.stat-label{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);}
+.stat-val{font-size:1.1rem;font-weight:900;color:#f0c060;}
+#grid{display:grid;gap:4px;margin-bottom:10px;touch-action:none;}
+.cell{display:flex;align-items:center;justify-content:center;border-radius:6px;font-weight:900;font-family:'Nunito',sans-serif;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.12);color:#fff;cursor:pointer;transition:background .1s,border-color .1s;text-transform:uppercase;}
+.cell.selected{background:rgba(240,192,96,.35);border-color:#f0c060;}
+.cell.found{background:rgba(106,255,176,.2);border-color:#6affb0;color:#6affb0;}
+.cell.hint{background:rgba(255,120,100,.35);border-color:#ff7864;animation:hpulse .6s 3;}
+@keyframes hpulse{0%,100%{opacity:1}50%{opacity:.4}}
+#word-list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px;max-width:360px;}
+.word-chip{background:rgba(255,255,255,.07);border:1.5px solid rgba(240,192,96,.25);border-radius:20px;padding:4px 12px;font-size:.82rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;transition:all .3s;}
+.word-chip.found{background:rgba(106,255,176,.15);border-color:#6affb0;color:#6affb0;text-decoration:line-through;}
+.btn-row{display:flex;gap:8px;margin-top:4px;}
+.action-btn{background:rgba(255,255,255,.07);border:1.5px solid rgba(240,192,96,.3);border-radius:10px;color:#f0c060;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;padding:8px 14px;cursor:pointer;letter-spacing:.03em;transition:background .15s;}
+.action-btn:active{background:rgba(240,192,96,.2);}
+#level-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.88);align-items:center;justify-content:center;}
+#level-overlay.show{display:flex;}
+.lv-box{background:#0d1117;border:2px solid #f0c060;border-radius:18px;padding:28px 24px;text-align:center;max-width:300px;width:90%;box-shadow:0 0 50px rgba(240,192,96,.3);}
+.lv-box h2{font-family:'Cinzel',serif;font-size:1.4rem;color:#f0c060;margin-bottom:8px;}
+.lv-box p{color:rgba(255,255,255,.6);font-size:.88rem;margin-bottom:18px;}
+.lv-btn{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px 0;font-size:1rem;font-weight:800;cursor:pointer;width:100%;letter-spacing:.04em;}
 </style>
 </head>
 <body>
-<div id="htp-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.87);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif"><div style="background:#0d1117;border:2px solid #7c3aed;border-radius:18px;padding:26px 20px;max-width:320px;width:100%;text-align:center;color:#fff;box-shadow:0 0 50px rgba(124,58,237,.35)"><div style="font-size:2.2rem;margin-bottom:8px">&#127918;</div><h2 style="margin:0 0 12px;font-size:1.15rem;color:#a78bfa;letter-spacing:.02em">How to Play</h2><p style="margin:0 0 18px;font-size:.88rem;line-height:1.65;color:#cbd5e1">Swipe or drag through the letters to spell a word<br>Words can go in any direction<br>Find all the hidden words to win!</p><button onclick="document.getElementById('htp-overlay').remove()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px 0;font-size:1rem;font-weight:700;cursor:pointer;width:100%;letter-spacing:.04em">&#9654; Let's Play!</button></div></div>
+<div id="htp-overlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.87);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,sans-serif"><div style="background:#0d1117;border:2px solid #7c3aed;border-radius:18px;padding:26px 20px;max-width:320px;width:100%;text-align:center;color:#fff;box-shadow:0 0 50px rgba(124,58,237,.35)"><div style="font-size:2.2rem;margin-bottom:8px">&#128269;</div><h2 style="margin:0 0 12px;font-size:1.15rem;color:#a78bfa;letter-spacing:.02em">How to Play</h2><p style="margin:0 0 18px;font-size:.88rem;line-height:1.65;color:#cbd5e1">Find the hidden words in the grid!<br>Tap the first letter, then drag or tap the last<br>Words go across, down and diagonal<br>Use Hint for a clue, Shuffle for a new grid</p><button onclick="document.getElementById('htp-overlay').remove()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px 0;font-size:1rem;font-weight:700;cursor:pointer;width:100%;letter-spacing:.04em">&#9654; Let's Play!</button></div></div>
 <h1>WORD HUNT</h1>
-<div class="top-row">
-  <div class="stat"><div class="stat-label">Score</div><div class="stat-val" id="el-score">0</div></div>
-  <svg id="timer-ring" viewBox="0 0 46 46">
-    <circle cx="23" cy="23" r="20" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="4"/>
-    <circle id="timer-arc" cx="23" cy="23" r="20" fill="none" stroke="#f0c060"
-      stroke-width="4" stroke-linecap="round"
-      stroke-dasharray="125.66" stroke-dashoffset="0"
-      transform="rotate(-90 23 23)"/>
-    <text x="23" y="27" text-anchor="middle" fill="#fff" font-family="Nunito,sans-serif" font-weight="900" font-size="11" id="timer-text">90</text>
-  </svg>
-  <div class="stat"><div class="stat-label">Words</div><div class="stat-val" id="el-words">0</div></div>
+<div class="top-bar">
+  <div class="stat"><div class="stat-label">Level</div><div class="stat-val" id="el-level">1</div></div>
+  <div class="stat"><div class="stat-label">Found</div><div class="stat-val" id="el-found">0 / 0</div></div>
+  <div class="stat"><div class="stat-label">Best Level</div><div class="stat-val" id="el-best">1</div></div>
 </div>
-<div id="word-display"></div>
-<div class="grid-wrap">
-  <canvas id="cv"></canvas>
+<div id="grid"></div>
+<div id="word-list"></div>
+<div class="btn-row">
+  <button class="action-btn" id="btn-back">&#8592; Back</button>
+  <button class="action-btn" id="btn-hint">&#128161; Hint</button>
+  <button class="action-btn" id="btn-shuffle">&#128256; Shuffle</button>
 </div>
-<div class="found-panel">
-  <h3>Found words</h3>
-  <div class="words-list" id="words-list"></div>
-</div>
-<div id="overlay">
-  <div class="ov-box">
-    <h2 id="ov-title">Time's Up!</h2>
-    <p style="color:rgba(255,255,255,.5);font-size:.85rem">Final Score</p>
-    <span class="ov-score" id="ov-score">0</span>
-    <button class="btn" onclick="startGame()">Play Again</button>
+<div id="level-overlay">
+  <div class="lv-box">
+    <h2 id="lv-title">Level Complete!</h2>
+    <p id="lv-msg">All words found!</p>
+    <button class="lv-btn" id="lv-btn">Next Level &#8594;</button>
   </div>
 </div>
-
 <script>
-const cv = document.getElementById('cv');
-const ctx = cv.getContext('2d');
+const WORDS={
+  2:['IT','IS','IN','TO','UP','ON','GO','DO','NO','SO','BE','ME','HE','WE','MY','BY'],
+  3:['CAT','DOG','SUN','RUN','FUN','ANT','BEE','OWL','SKY','SEA','ICE','HOT','RED','NEW','OLD','BIG','HIT','ACE','BOW','CUP'],
+  4:['FISH','BIRD','FROG','JUMP','PLAY','RAIN','SNOW','TREE','CAKE','STAR','MOON','FIRE','WAVE','ROCK','LEAF','RING','FARM','GOLD','IRON','LAKE'],
+  5:['DANCE','MUSIC','LIGHT','WATER','EARTH','HEART','SMILE','APPLE','BEACH','CLOUD','DREAM','FLAME','GRASS','HORSE','OCEAN','TIGER','PIANO','QUEEN','RIVER','GIANT'],
+  6:['CASTLE','FLOWER','GARDEN','JUNGLE','MONKEY','ORANGE','RABBIT','SILVER','SUNSET','BRIDGE','BUTTER','COFFEE','DOCTOR','FARMER','GENTLE'],
+  7:['BALLOON','CHICKEN','DOLPHIN','RAINBOW','THUNDER','FANTASY','HOLIDAY','CRYSTAL','BLANKET','CAPTAIN','DIAMOND','ELEMENT','FREEDOM','HARVEST']
+};
 
-// Compact word list (3-6 letters, common English words)
-const WORDS = new Set(`ace act add age ago aid aim air ale all and ant any ape apt arc are ark arm art ash ask ate awe axe aye
-bad bag ban bar bat bay bed bet big bit bog bow box boy bud bug bun bus but buy bye
-cab can cap car cat cob cod cog cop cot cow cry cub cup cut
-dad dam day den dew did die dig dim dip dog dot dry dub dug dye
-ear eat egg ego elf elm end era eve eye
-fad fan far fat fee few fib fig fin fit fix fly foe fog for fox fry fun fur
-gag gap gas get gin god got gum gun gut guy
-had ham has hat hay hem hen hid him his hit hob hod hog hop hot how hub hue hug hum hut
-ice icy ill imp ink ion ire ivy
-jab jag jam jar jaw jay jet job jog jot joy jug jut
-keg key kid kin kit
-lab lag lad lap law lax lay leg let lid lip lit log lot low lug
-mad map mar mat maw mop mud mug mum nab nag nap nit nob nod nor now nun nut
-oaf oak oar oat odd off oft oil old ore our out owe own
-pad pal pan pap par pat paw pay pea peg pen pep pet pie pig pin pit ply pod pop pot pow pro pry pub pug pun pup put
-rag ram ran rap rat raw ray red rib rid rig rim rip rob rod rot row rub rug rum run rut rye
-sac sad sag sap sat saw say sea set sew shy sip sir sit six ski sky sly sob sob sod son sop sot sow soy spa spy sty sub sue sum sun sup
-tab tan tap tar tat tax tea ten the thy tie tin tip toe ton too top toy try tub tug two
-ugh urn use
-van vat vow
-wad war was wax way web wed wee wet who why wig win wit woe woe wok won woo wow
-yak yam yap yaw yea yet yew you
-zap zed zip zoo
-abed able abet abut aced aces ache acid acne acre acts aged ages aids aims ails airs airy akin ale ales alms aloe also alto alts amen amid amok amps ands anew ankh anti ants aped apes apse arcs area aria arid arks arms army arts ashy asks atom atop avid awed awes awed awed awls awns axed axes axis
-back bade balk ball balm bane bang bane bank bare bark barn base bash bask bass bath bats baud bawl beak beam bean bear beat beds beef been beer bell belt berm best beta bile bill bimbo bind bins bird bite bits blob blot blow blue blur boar boat bold bole bolt bond bone boo boom boon boor boot bore born both bout bowl brat bred brew brim brow buck buff bulk bull bump bunk bunt burn burp burr bury bush busy butt buzz
-cafe cage cake calk call calm came cane cape carp cart case cash cast cave cede cell chad char chat chew chin chip chop chow chug cite clam clan clap claw clay clew clog clop clot club clue coal coat coax code coil coin coke cold colt coma come cone cool cope cord core cork corn cost coup cove cozy crab cram cred crew crop crow crud cube cuff cult curd cure curl curt cusp cute cyan
-dale damp dare dark darn dart data date daub dawn dead deaf deal dean dear deed deer deft dell demo dent desk dial dice died dies dike dill dime dine ding dire disk dive dock does doff dome done doom dote dove down drab drag dram draw drew drip drop duel duet dull dune dusk dust duty
-each earl earn ease east easy edge edgy edit emit epic etude even ever exam exit expo eyed eyes
-face fact fade fail fain fair fake fall fame fare farm fast fate fawn faze fear feat feed feel fell felt fern ferule fest feud fief file fill film find fine fire firm fish fist five flag flak flap flat flaw flea fled flew flit flip flit floe flog flow flux foam fold folk fond font food fool ford fore fork form fort foul four fowl free fret from fuel full fume fury fuse fuzz
-gale gall game gang gasp gate gave gawk gaze gear gest gibe gift gild gilt gist give glad glam glee glen glib glob glow glue glum gnar gnaw goal goat gory gown grab grad gram gray grew grid grim grin grip grit grow grub gulf gull gulp gust guts
-hack hail hair hale hall halt hand hang hank hard hark harm harp hash haste hate hath haul have hawk haze head heal heap hear heat heel heed hell helm hemp herd here hero hide high hike hill hilt hint hive hoed hoer hold hole holm holt home hone honk hood hoop hope horn host hour hoar huff hull hump hunk hunt hurl hurt husk hymn
-icon idea idle idly imps inch info inks into ions iris irks isle itch
-jack jade jail jake jamb jane jape jest jibe jilt jinx jive joust jowl junk jury just
-keen keep kelp kept kern keys kill kilt kind king kiss kite knit knob knot know
-lace lack lame lamp land lane lank lard lark lash lass last late lath laud lave lawn lazy lead leaf leak lean leek left lend lens lent lest levy lick lieu life lift like lime limp line link lint lion list live lobe loft lone long look loom loon loot lord lore lorn loss lour lout love luce luck luff lull lump lure lurk lust lute lyre
-mace made mage main make male mall malt mama mane many mare mark marsh mart mash mast mate math maze mead meal mean meat meld melt memo mend mere mesh mild mile mill mime mind mine mint miss mite moat mock mold molt monk mood moor mope more mort most moth move much muck mule mull muon muse musk must mute myth
-nail name nape need newt nice nick nide nigh nine node noel noir nome noon nope norm nose note nova numb
-oath oboe odds oils okay once only open opus oval oven over
-pace pack pact paid pail pain pair pale pall palm pane para park part pass past path pave pawn peel peer pell pend perm pest pick pier pike pile pill pine pink pint pipe plan plat play plea plod plot plow ploy plug plum plus poke pole poll pond pore port pose post pour prey prod prop prow prune puff pull pulp pump punt pure purl push pyre
-quip
-race rack raft rage raid rail rain rake rank rant rape rasp raze read reap reed reel reef rely rend rent reek rest revue rich rick ride rife rift ring rink riot rise risk rite road roam roar robe rock rode roll romp roof rook room root rope rose rove rude rule rung rush rust
-sack safe saga sage sake sale salt same sand sane sang sank sash save scad scam scan scar scot scud seal seam sear seat seed seek seel seem seen seep self semi send serf sewn shed shin ship shop shot show shut sick sift silk sill silo silt sine sink site size skid skin skip slab slag slap slat slaw sled slew slid slim slip slit slob sloe slog slop slot slow slug slum slur smog smug snag snap snip snob snob snog snub snug soak soap soar sock soil sold sole some song sort soul soup sour sown span spar spat spec sped spin spit spot spud spur stab stag star stem step stew stir stop stub stud stun suck suit sulk sump swam swap swat swear swim swam sync
-tack tail tale tame tang tank tape tare task taut teal team tear teem tell telt temp tend tent term test text than then they thin tide tied tier tiff tilt time tine ting tire toll tomb tome tone tong toot toss trek trim trio trip trod tuck tune turf twin type
-ugly ulna undo unit unto upon used user
-vale vamp vane veal veil vein very vest view vile vine viol void vote vale vane
-wail wait wake walk wand wane want ward ware wart wary wasp weal wean weep weld welt went were whet whim whip wild wile will wilt wind wine wink wire wise wish wisp woke wolf womb word wore work worm worn wove wrap wren writ
-yore your zero zone zoom`.split(/\s+/).filter(w => w.length >= 3));
+const DIRS=[[0,1],[1,0],[1,1],[1,-1],[0,-1],[-1,0],[-1,-1],[-1,1]];
+const DIR_LABELS=['right','down','diag-down','diag-up','left','up','diag-ul','diag-ur'];
 
-const GRID = 4;
-const TIME = 90;
-
-// Letter frequency weights
-const LETTERS = 'AAAAAAAAABBCCDDDEEEEEEEEEEEFFGGHHIIIIIIJKLLLLMMNNNOOOOOOOPPQRRRRRRSSSSTTTTTTTUUUUVVWWXYYZ';
-
-let cells, selected, path, pathSet, found, timer, timeLeft, score, running;
-let CELL, canvasW;
-
-function resize(){
-  const avail = Math.min(window.innerWidth - 24, 320);
-  CELL = Math.floor(avail / GRID);
-  canvasW = CELL * GRID;
-  cv.width = canvasW;
-  cv.height = canvasW;
+function levelConfig(lv){
+  const cfgs=[
+    {size:6,lengths:[2],count:5},
+    {size:7,lengths:[2,3],count:5},
+    {size:8,lengths:[3,4],count:6},
+    {size:9,lengths:[3,4,5],count:6},
+    {size:10,lengths:[4,5],count:7},
+    {size:11,lengths:[5,6],count:7},
+    {size:12,lengths:[5,6,7],count:8}
+  ];
+  return cfgs[Math.min(lv-1,cfgs.length-1)];
 }
 
-function makeGrid(){
-  return Array.from({length:GRID*GRID}, () => LETTERS[Math.floor(Math.random()*LETTERS.length)]);
+function pickWords(lengths,count){
+  const pool=[];
+  lengths.forEach(l=>{if(WORDS[l])pool.push(...WORDS[l]);});
+  const sh=[...pool].sort(()=>Math.random()-.5);
+  return sh.slice(0,count);
 }
 
-function startGame(){
-  resize();
-  cells = makeGrid();
-  selected = [];
-  path = [];
-  pathSet = new Set();
-  found = new Set();
-  score = 0;
-  timeLeft = TIME;
-  running = true;
-  document.getElementById('words-list').innerHTML = '';
-  document.getElementById('el-score').textContent = '0';
-  document.getElementById('el-words').textContent = '0';
-  document.getElementById('overlay').classList.remove('show');
-  updateDisplay('');
-  updateTimer();
-  if(timer) clearInterval(timer);
-  timer = setInterval(() => {
-    timeLeft--;
-    updateTimer();
-    if(timeLeft <= 0){
-      clearInterval(timer);
-      running = false;
-      endGame();
+function tryPlace(grid,word,size){
+  for(let attempt=0;attempt<120;attempt++){
+    const di=Math.floor(Math.random()*DIRS.length);
+    const [dr,dc]=DIRS[di];
+    const r0=Math.floor(Math.random()*size);
+    const c0=Math.floor(Math.random()*size);
+    const cells=[];let ok=true;
+    for(let i=0;i<word.length;i++){
+      const r=r0+dr*i,c=c0+dc*i;
+      if(r<0||r>=size||c<0||c>=size){ok=false;break;}
+      if(grid[r][c]&&grid[r][c]!==word[i]){ok=false;break;}
+      cells.push([r,c]);
     }
-  }, 1000);
-  requestAnimationFrame(loop);
+    if(ok){cells.forEach(([r,c],i)=>grid[r][c]=word[i]);return{word,cells,found:false};}
+  }
+  return null;
 }
 
-function updateTimer(){
-  const frac = timeLeft / TIME;
-  const dash = 125.66;
-  document.getElementById('timer-arc').setAttribute('stroke-dashoffset', dash*(1-frac));
-  document.getElementById('timer-arc').setAttribute('stroke', timeLeft <= 15 ? '#ff5252' : '#f0c060');
-  document.getElementById('timer-text').textContent = timeLeft;
+function buildGrid(size,words){
+  const grid=Array.from({length:size},()=>Array(size).fill(''));
+  const placed=[];
+  for(const w of words){const p=tryPlace(grid,w,size);if(p)placed.push(p);}
+  const alpha='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++)if(!grid[r][c])grid[r][c]=alpha[Math.floor(Math.random()*26)];
+  return{grid,placed};
 }
 
-function updateDisplay(text){
-  const el = document.getElementById('word-display');
-  el.textContent = text;
-  el.className = '';
-  if(text.length >= 3){
-    if(found.has(text.toLowerCase())) el.className = 'used';
-    else if(WORDS.has(text.toLowerCase())) el.className = 'valid';
+let currentLevel=1,gridData=[],placedWords=[],foundWords=[],gridSize=0;
+let selecting=false,startCell=null,curCells=[];
+let bestLevel=+(localStorage.getItem('wordhunt_best')||1);
+
+function startLevel(lv){
+  currentLevel=lv;
+  const cfg=levelConfig(lv);
+  gridSize=cfg.size;
+  const words=pickWords(cfg.lengths,cfg.count);
+  const built=buildGrid(gridSize,words);
+  gridData=built.grid;
+  placedWords=built.placed;
+  foundWords=[];
+  document.getElementById('el-level').textContent=lv;
+  document.getElementById('el-best').textContent=bestLevel;
+  updateFoundHUD();
+  renderGrid();
+  renderWordList();
+}
+
+function updateFoundHUD(){
+  document.getElementById('el-found').textContent=`${foundWords.length} / ${placedWords.length}`;
+}
+
+function renderGrid(){
+  const wrap=document.getElementById('grid');
+  const avail=Math.min(window.innerWidth-20,360);
+  const cellSz=Math.floor((avail-4*(gridSize-1))/gridSize);
+  wrap.style.gridTemplateColumns=`repeat(${gridSize},${cellSz}px)`;
+  wrap.innerHTML='';
+  for(let r=0;r<gridSize;r++){
+    for(let c=0;c<gridSize;c++){
+      const d=document.createElement('div');
+      d.className='cell';
+      d.style.width=d.style.height=cellSz+'px';
+      d.style.fontSize=Math.max(cellSz*.45,10)+'px';
+      d.textContent=gridData[r][c];
+      d.dataset.r=r;d.dataset.c=c;
+      d.addEventListener('pointerdown',onDown);
+      d.addEventListener('pointerenter',onEnter);
+      d.addEventListener('pointerup',onUp);
+      wrap.appendChild(d);
+    }
+  }
+  refreshCellStyles();
+}
+
+function cellEl(r,c){
+  return document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+}
+
+function refreshCellStyles(){
+  for(let r=0;r<gridSize;r++)for(let c=0;c<gridSize;c++){
+    const el=cellEl(r,c);if(!el)continue;
+    const isSel=curCells.some(([sr,sc])=>sr===r&&sc===c);
+    const isFound=placedWords.filter(p=>p.found).some(p=>p.cells.some(([pr,pc])=>pr===r&&pc===c));
+    el.className='cell'+(isFound?' found':isSel?' selected':'');
   }
 }
 
-function idxToXY(idx){
-  return {x:(idx%GRID)*CELL + CELL/2, y:Math.floor(idx/GRID)*CELL + CELL/2};
+function getLineCells(r0,c0,r1,c1){
+  const dr=Math.sign(r1-r0),dc=Math.sign(c1-c0);
+  if(dr===0&&dc===0)return[[r0,c0]];
+  const len=Math.max(Math.abs(r1-r0),Math.abs(c1-c0));
+  const cells=[];for(let i=0;i<=len;i++)cells.push([r0+dr*i,c0+dc*i]);
+  return cells;
 }
 
-function xyToIdx(px, py){
-  const c = Math.floor(px/CELL), r = Math.floor(py/CELL);
-  if(c < 0||c >= GRID||r < 0||r >= GRID) return -1;
-  return r*GRID+c;
+function onDown(e){
+  e.preventDefault();
+  selecting=true;
+  const r=+e.currentTarget.dataset.r,c=+e.currentTarget.dataset.c;
+  startCell=[r,c];curCells=[[r,c]];
+  refreshCellStyles();
+  e.currentTarget.setPointerCapture(e.pointerId);
 }
-
-function adjacent(a, b){
-  const ar = Math.floor(a/GRID), ac = a%GRID;
-  const br = Math.floor(b/GRID), bc = b%GRID;
-  return Math.abs(ar-br) <= 1 && Math.abs(ac-bc) <= 1 && a !== b;
+function onEnter(e){
+  if(!selecting||!startCell)return;
+  const r=+e.currentTarget.dataset.r,c=+e.currentTarget.dataset.c;
+  curCells=getLineCells(startCell[0],startCell[1],r,c);
+  refreshCellStyles();
 }
-
-function beginPath(px, py){
-  if(!running) return;
-  const idx = xyToIdx(px, py);
-  if(idx < 0) return;
-  selected = [idx];
-  pathSet = new Set([idx]);
-  updateDisplay(cells[idx]);
+function onUp(e){
+  if(!selecting)return;
+  selecting=false;
+  checkSelection();
+  startCell=null;curCells=[];
+  refreshCellStyles();
 }
+document.getElementById('grid').addEventListener('pointerleave',()=>{
+  if(selecting){selecting=false;checkSelection();startCell=null;curCells=[];refreshCellStyles();}
+});
 
-function extendPath(px, py){
-  if(!running || selected.length === 0) return;
-  const idx = xyToIdx(px, py);
-  if(idx < 0) return;
-  if(pathSet.has(idx)) return;
-  const last = selected[selected.length-1];
-  if(!adjacent(last, idx)) return;
-  selected.push(idx);
-  pathSet.add(idx);
-  const word = selected.map(i => cells[i]).join('');
-  updateDisplay(word);
-}
-
-function commitWord(){
-  if(!running) return;
-  const word = selected.map(i => cells[i]).join('').toLowerCase();
-  if(word.length >= 3 && WORDS.has(word) && !found.has(word)){
-    found.add(word);
-    const pts = [0,0,0,100,200,400,800][Math.min(word.length,6)] || 800;
-    score += pts;
-    document.getElementById('el-score').textContent = score;
-    document.getElementById('el-words').textContent = found.size;
-    addChip(word);
-    flashValid();
+function checkSelection(){
+  if(curCells.length<2)return;
+  const word=curCells.map(([r,c])=>gridData[r][c]).join('');
+  const rev=word.split('').reverse().join('');
+  for(const p of placedWords){
+    if(p.found)continue;
+    if(p.word===word||p.word===rev){
+      p.found=true;
+      foundWords.push(p.word);
+      p.cells.forEach(([r,c])=>{const el=cellEl(r,c);if(el){el.className='cell found';}});
+      renderWordList();
+      updateFoundHUD();
+      if(foundWords.length===placedWords.length)setTimeout(showLevelComplete,500);
+      return;
+    }
   }
-  selected = [];
-  pathSet = new Set();
-  updateDisplay('');
 }
 
-function addChip(word){
-  const chip = document.createElement('div');
-  chip.className = 'word-chip';
-  chip.textContent = word;
-  document.getElementById('words-list').prepend(chip);
-}
-
-function flashValid(){
-  cv.style.boxShadow = '0 0 30px rgba(106,255,176,.6)';
-  setTimeout(() => cv.style.boxShadow = '', 350);
-}
-
-function endGame(){
-  document.getElementById('ov-score').textContent = score;
-  document.getElementById('overlay').classList.add('show');
-}
-
-function getPos(e, touch){
-  const rect = cv.getBoundingClientRect();
-  const scX = cv.width/rect.width, scY = cv.height/rect.height;
-  if(touch) return {x:(touch.clientX-rect.left)*scX, y:(touch.clientY-rect.top)*scY};
-  return {x:(e.clientX-rect.left)*scX, y:(e.clientY-rect.top)*scY};
-}
-
-cv.addEventListener('mousedown', e => beginPath(...Object.values(getPos(e))));
-cv.addEventListener('mousemove', e => { if(e.buttons) extendPath(...Object.values(getPos(e))); });
-cv.addEventListener('mouseup', () => commitWord());
-cv.addEventListener('mouseleave', () => commitWord());
-cv.addEventListener('touchstart', e => { e.preventDefault(); const p = getPos(null,e.touches[0]); beginPath(p.x,p.y); },{passive:false});
-cv.addEventListener('touchmove', e => { e.preventDefault(); const p = getPos(null,e.touches[0]); extendPath(p.x,p.y); },{passive:false});
-cv.addEventListener('touchend', e => { e.preventDefault(); commitWord(); },{passive:false});
-window.addEventListener('resize', () => { resize(); });
-
-function drawScene(){
-  ctx.clearRect(0,0,canvasW,canvasW);
-
-  // Board bg
-  const bg = ctx.createRadialGradient(canvasW/2,canvasW/2,0,canvasW/2,canvasW/2,canvasW*.7);
-  bg.addColorStop(0,'#1f0d40');
-  bg.addColorStop(1,'#0d0520');
-  ctx.fillStyle = bg;
-  ctx.beginPath();
-  rRect(ctx,0,0,canvasW,canvasW,10);
-  ctx.fill();
-
-  // Connection line
-  if(selected.length > 1){
-    ctx.save();
-    ctx.lineWidth = CELL*.12;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(240,192,96,.35)';
-    ctx.beginPath();
-    selected.forEach((idx,i) => {
-      const p = idxToXY(idx);
-      i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y);
-    });
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  const now = Date.now();
-
-  cells.forEach((letter, idx) => {
-    const r = Math.floor(idx/GRID), c = idx%GRID;
-    const x = c*CELL, y = r*CELL;
-    const cx = x+CELL/2, cy = y+CELL/2;
-    const pad = CELL*.1;
-    const sz = CELL-pad*2;
-    const isSel = pathSet.has(idx);
-    const isLast = selected.length > 0 && selected[selected.length-1] === idx;
-
-    ctx.save();
-
-    if(isSel){
-      ctx.shadowColor = '#f0c060';
-      ctx.shadowBlur = CELL*.5;
-    }
-
-    // Tile
-    const tileGrad = ctx.createLinearGradient(x+pad,y+pad,x+pad+sz,y+pad+sz);
-    if(isSel){
-      tileGrad.addColorStop(0,'#5c3a00');
-      tileGrad.addColorStop(.5,'#8a5800');
-      tileGrad.addColorStop(1,'#3d2600');
-    } else {
-      tileGrad.addColorStop(0,'#2a1a4a');
-      tileGrad.addColorStop(.5,'#1e1035');
-      tileGrad.addColorStop(1,'#140b25');
-    }
-    ctx.fillStyle = tileGrad;
-    rRect(ctx, x+pad, y+pad, sz, sz, sz*.18);
-    ctx.fill();
-
-    // Shine
-    const shine = ctx.createLinearGradient(x+pad, y+pad, x+pad, y+pad+sz*.5);
-    shine.addColorStop(0, `rgba(255,255,255,${isSel?.25:.12})`);
-    shine.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle = shine;
-    rRect(ctx, x+pad, y+pad, sz, sz*.45, sz*.18);
-    ctx.fill();
-
-    // Border
-    ctx.strokeStyle = isSel ? 'rgba(240,192,96,.8)' : 'rgba(255,255,255,.08)';
-    ctx.lineWidth = isSel ? 2 : 1;
-    rRect(ctx, x+pad+.5, y+pad+.5, sz-1, sz-1, sz*.18);
-    ctx.stroke();
-
-    // Letter
-    const fontSize = CELL * .42;
-    ctx.font = `900 ${fontSize}px Nunito,sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = isSel ? '#f0c060' : 'transparent';
-    ctx.shadowBlur = isSel ? 10 : 0;
-    ctx.fillStyle = isSel ? '#f0c060' : '#e8deff';
-    ctx.fillText(letter, cx, cy + fontSize*.05);
-
-    // Position dot on selected
-    if(isLast){
-      ctx.fillStyle = '#f0c060';
-      ctx.beginPath();
-      ctx.arc(cx, cy + sz*.28, sz*.07, 0, Math.PI*2);
-      ctx.fill();
-    }
-
-    ctx.restore();
+function renderWordList(){
+  const wrap=document.getElementById('word-list');
+  wrap.innerHTML='';
+  placedWords.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='word-chip'+(p.found?' found':'');
+    d.textContent=p.word;
+    wrap.appendChild(d);
   });
 }
 
-function rRect(c, x, y, w, h, r){
-  c.beginPath();
-  c.moveTo(x+r,y);
-  c.arcTo(x+w,y,x+w,y+h,r);
-  c.arcTo(x+w,y+h,x,y+h,r);
-  c.arcTo(x,y+h,x,y,r);
-  c.arcTo(x,y,x+w,y,r);
-  c.closePath();
+function showLevelComplete(){
+  if(currentLevel>=bestLevel){bestLevel=currentLevel;localStorage.setItem('wordhunt_best',bestLevel);}
+  document.getElementById('lv-title').textContent='Level '+currentLevel+' Complete!';
+  document.getElementById('lv-msg').textContent='All '+placedWords.length+' words found! Ready for Level '+(currentLevel+1)+'?';
+  document.getElementById('level-overlay').classList.add('show');
 }
 
-function loop(){
-  drawScene();
-  requestAnimationFrame(loop);
-}
+document.getElementById('lv-btn').addEventListener('click',()=>{
+  document.getElementById('level-overlay').classList.remove('show');
+  startLevel(currentLevel+1);
+});
 
-startGame();
+document.getElementById('btn-back').addEventListener('click',()=>{
+  if(currentLevel>1)startLevel(currentLevel-1);
+});
+document.getElementById('btn-hint').addEventListener('click',()=>{
+  const unfound=placedWords.filter(p=>!p.found);
+  if(!unfound.length)return;
+  const p=unfound[Math.floor(Math.random()*unfound.length)];
+  p.cells.forEach(([r,c])=>{
+    const el=cellEl(r,c);
+    if(el){el.classList.add('hint');setTimeout(()=>el.classList.remove('hint'),2000);}
+  });
+});
+document.getElementById('btn-shuffle').addEventListener('click',()=>{
+  const cfg=levelConfig(currentLevel);
+  const words=placedWords.map(p=>p.word);
+  const built=buildGrid(gridSize,words);
+  gridData=built.grid;
+  placedWords=built.placed;
+  foundWords.forEach(w=>{const p=placedWords.find(x=>x.word===w);if(p)p.found=true;});
+  renderGrid();
+  renderWordList();
+});
+
+window.addEventListener('resize',()=>{renderGrid();});
+startLevel(1);
 </script>
 </body>
 </html>
