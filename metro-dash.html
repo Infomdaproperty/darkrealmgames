@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -129,7 +129,7 @@ let segs, coins, bgStars, cityLayers, particles;
 let distance, score, coinCount, bestScore, alive;
 let raf, lastTime;
 
-const GRAVITY = 0.55;
+const GRAVITY = 0.65;
 const COIN_VAL = 50;
 
 function resize(){
@@ -164,7 +164,7 @@ function mkCityLayer(n, h, sp, col){
 function startGame(){
   resize();
   bestScore = bestScore || 0;
-  speed = W * 0.008;
+  speed = W * 0.006;
   playerY = GROUND_Y - PLAYER_H;
   playerVY = 0; jumpsLeft = 2; grounded = true;
   distance = 0; score = 0; coinCount = 0; alive = true;
@@ -191,7 +191,7 @@ function startGame(){
 function jump(){
   if(!alive) return;
   if(jumpsLeft > 0){
-    playerVY = -(H * 0.034 + speed * 0.3);
+    playerVY = -(H * 0.027 + speed * 0.15);
     jumpsLeft--;
     grounded = false;
     spawnJumpParticles();
@@ -217,7 +217,7 @@ function update(dt){
 
   // Speed ramp
   distance += speed * f;
-  speed = W * 0.008 + distance * 0.000015 * W;
+  speed = W * 0.006 + distance * 0.00001 * W;
   score = Math.floor(distance) + coinCount * COIN_VAL;
 
   // Scroll segments
