@@ -61,7 +61,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 }
 .nav-search input:focus{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);}
 .nav-search input::placeholder{color:var(--muted);}
-.nav-search::before{content:'&#x1F50D;';position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:.85rem;pointer-events:none;}
+.nav-search::before{content:'\1F50D';position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:.85rem;pointer-events:none;}
 .nav-stats{
   display:flex;gap:20px;flex-shrink:0;
   font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
@@ -149,7 +149,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
   font-family:'Cinzel',serif;font-size:clamp(1.3rem,3vw,2rem);color:#fff;line-height:1.1;
 }
 .featured-tags{display:flex;gap:7px;flex-wrap:wrap;}
-.featured-play{
+.featured-play{touch-action:manipulation;
   display:inline-flex;align-items:center;gap:10px;
   background:linear-gradient(135deg,var(--orange),var(--pink));
   color:#fff;font-family:'Cinzel',serif;font-size:.82rem;font-weight:700;
@@ -182,7 +182,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .game-card{
   display:block;text-decoration:none;border-radius:var(--radius);
   background:var(--card);overflow:hidden;border:1px solid var(--border);
-  transition:transform .18s,box-shadow .18s,border-color .18s;position:relative;
+  transition:transform .18s,box-shadow .18s,border-color .18s;position:relative;touch-action:manipulation;
 }
 .game-card:hover{
   transform:translateY(-5px) scale(1.025);
