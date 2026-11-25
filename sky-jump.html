@@ -198,9 +198,9 @@ function spawnParticles(x, worldY, color){
 
 function update(){
   // Input
-  if(getLeft()){ player.vx = Math.max(player.vx-0.7, -5); }
-  else if(getRight()){ player.vx = Math.min(player.vx+0.7, 5); }
-  else { player.vx *= 0.82; }
+  if(getLeft()){ player.vx = Math.max(player.vx-0.5, -3.5); }
+  else if(getRight()){ player.vx = Math.min(player.vx+0.5, 3.5); }
+  else { player.vx *= 0.75; }
 
   player.vy += GRAVITY;
   player.worldY += player.vy * .5; // world coords go DOWN when vy>0, so we subtract

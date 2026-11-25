@@ -142,7 +142,7 @@ function newGame(){
 
   // Ground block
   const groundY = BOARD_Y + BH - blockH;
-  stack.push({x: BOARD_X, y: groundY, w: BW, hue: HUE_STEPS[0]});
+  stack.push({x: BOARD_X + Math.floor((BW-startingW)/2), y: groundY, w: startingW, hue: HUE_STEPS[0]});
   startMovingBlock();
 
   updateHUD();
@@ -157,7 +157,7 @@ function startMovingBlock(){
   moveW = prev.w;
   moveX = BOARD_X;
   moveDir = 1;
-  moveSpeed = Math.min(5.5 + level * 0.65, 20);
+  moveSpeed = Math.min(8 + level * 0.7, 24);
 }
 
 function blockY(){

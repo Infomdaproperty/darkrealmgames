@@ -96,10 +96,10 @@ canvas#cv{display:block;border-radius:8px;box-shadow:0 0 60px rgba(0,200,255,.15
 </div>
 <div class="touch-btns">
   <button class="tbtn" id="btn-left">&#9664;</button>
-  <button class="tbtn accel" id="btn-up">&#9650;</button>
+  <button class="tbtn" id="btn-up" style="font-size:.7rem">SLOW</button>
   <button class="tbtn" id="btn-right">&#9654;</button>
 </div>
-<div class="hint">Arrow keys or WASD to drive. Complete 3 laps.</div>
+<div class="hint">Car drives forward. Tap SLOW to brake. 3 laps.</div>
 <div id="overlay">
   <div class="ov-box">
     <h2 id="ov-title">RACE OVER</h2>
@@ -209,13 +209,13 @@ document.addEventListener('keyup', e => { keys[e.key] = false; });
 function getInput(){
   return {
     up: keys['ArrowUp']||keys['w']||keys['W']||touchInput.up,
-    down: keys['ArrowDown']||keys['s']||keys['S'],
+    down: keys['ArrowDown']||keys['s']||keys['S']||touchInput.down,
     left: keys['ArrowLeft']||keys['a']||keys['A']||touchInput.left,
     right: keys['ArrowRight']||keys['d']||keys['D']||touchInput.right,
   };
 }
 
-const touchInput = {up:false,left:false,right:false};
+const touchInput = {up:false,left:false,right:false,down:false};
 function setupTouch(){
   function bind(id, prop){
     const el = document.getElementById(id);
@@ -225,7 +225,7 @@ function setupTouch(){
     el.addEventListener('mousedown', ()=>{touchInput[prop]=true; el.classList.add('active');});
     el.addEventListener('mouseup', ()=>{touchInput[prop]=false; el.classList.remove('active');});
   }
-  bind('btn-up','up'); bind('btn-left','left'); bind('btn-right','right');
+  bind('btn-up','down'); bind('btn-left','left'); bind('btn-right','right');
 }
 
 function isOnTrack(x, y){
@@ -237,9 +237,9 @@ function isOnTrack(x, y){
 }
 
 function updateCar(inp){
-  if(inp.up) car.speed = Math.min(car.speed+car.accel, car.maxSpeed);
-  else if(inp.down) car.speed = Math.max(car.speed-car.brake, -car.maxSpeed*.25);
-  else car.speed *= car.friction;
+  if(inp.down) car.speed = Math.max(car.speed-car.brake, 0);
+
+  else car.speed = Math.min(car.speed+car.accel*0.4, car.maxSpeed*0.75);
 
   if(Math.abs(car.speed) > 0.2){
     const spd = Math.abs(car.speed)/car.maxSpeed;

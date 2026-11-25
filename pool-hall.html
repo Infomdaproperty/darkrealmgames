@@ -266,7 +266,7 @@ function startAim(pos){
   if(shooting || anyMoving()) return;
   const cb = cueBall();
   if(!cb || cb.pocketed) return;
-  if(Math.hypot(pos.x-cb.x, pos.y-cb.y) < R*4){
+  {
     aiming = true;
     aimStart = {x:cb.x, y:cb.y};
     aimEnd = pos;
@@ -283,7 +283,7 @@ function releaseAim(){
   const dx = aimStart.x - aimEnd.x;
   const dy = aimStart.y - aimEnd.y;
   const power = Math.min(Math.hypot(dx,dy)*SHOT_MULT, MAX_SPEED);
-  if(power < .5){ return; }
+  if(power < .1){ return; }
   const len = Math.hypot(dx,dy);
   cb.vx = (dx/len)*power;
   cb.vy = (dy/len)*power;
