@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -165,7 +165,7 @@ function mkCityLayer(n, h, sp, col){
 function startGame(){
   resize();
   bestScore = bestScore || 0;
-  speed = W * 0.006;
+  speed = W * 0.004;
   playerY = GROUND_Y - PLAYER_H;
   playerVY = 0; jumpsLeft = 2; grounded = true;
   distance = 0; score = 0; coinCount = 0; alive = true;
@@ -192,7 +192,7 @@ function startGame(){
 function jump(){
   if(!alive) return;
   if(jumpsLeft > 0){
-    playerVY = -(H * 0.027 + speed * 0.15);
+    playerVY = jumpsLeft === 2 ? -(H * 0.027 + speed * 0.1) : -(H * 0.024);
     jumpsLeft--;
     grounded = false;
     spawnJumpParticles();
@@ -218,7 +218,7 @@ function update(dt){
 
   // Speed ramp
   distance += speed * f;
-  speed = W * 0.006 + distance * 0.00001 * W;
+  speed = W * 0.004 + distance * 0.000007 * W;
   score = Math.floor(distance) + coinCount * COIN_VAL;
 
   // Scroll segments

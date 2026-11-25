@@ -154,7 +154,7 @@ function renderGrid(){
       d.textContent=gridData[r][c];
       d.dataset.r=r;d.dataset.c=c;
       d.addEventListener('pointerdown',onDown);
-      d.addEventListener('pointerenter',onEnter);
+      d.addEventListener('pointermove',onMove);
       d.addEventListener('pointerup',onUp);
       wrap.appendChild(d);
     }
@@ -191,9 +191,11 @@ function onDown(e){
   refreshCellStyles();
   e.currentTarget.setPointerCapture(e.pointerId);
 }
-function onEnter(e){
+function onMove(e){
   if(!selecting||!startCell)return;
-  const r=+e.currentTarget.dataset.r,c=+e.currentTarget.dataset.c;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  if(!el||el.dataset.r===undefined)return;
+  const r=+el.dataset.r,c=+el.dataset.c;
   curCells=getLineCells(startCell[0],startCell[1],r,c);
   refreshCellStyles();
 }

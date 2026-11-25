@@ -65,6 +65,9 @@ canvas{display:block;border-radius:10px;box-shadow:0 0 40px rgba(160,112,255,.2)
   transition:transform .15s,box-shadow .15s;
 }
 .btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(160,112,255,.4)}
+.joy-btns{display:flex;gap:16px;margin-top:10px;justify-content:center}
+.jbtn{background:rgba(160,112,255,.15);border:1.5px solid rgba(160,112,255,.4);border-radius:12px;color:#a070ff;font-size:1.6rem;width:72px;height:58px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:none}
+.jbtn.active{background:rgba(160,112,255,.35);border-color:rgba(160,112,255,.9)}
 </style>
 </head>
 <body>
@@ -75,7 +78,8 @@ canvas{display:block;border-radius:10px;box-shadow:0 0 40px rgba(160,112,255,.2)
   <div class="stat"><div class="stat-label">Best</div><div class="stat-val" id="el-best">0</div></div>
 </div>
 <canvas id="cv"></canvas>
-<div class="hint">Arrow keys or tap left / right to move</div>
+<div class="joy-btns"><button class="jbtn" id="joy-left">&#9664;</button><button class="jbtn" id="joy-right">&#9654;</button></div>
+<div class="hint">Arrow keys or tap &#9664; &#9654; buttons to move</div>
 <div id="overlay">
   <div class="ov-box">
     <h2 id="ov-title">Game Over</h2>
@@ -165,18 +169,18 @@ const keys = {};
 document.addEventListener('keydown', e => keys[e.key]=true);
 document.addEventListener('keyup', e => keys[e.key]=false);
 let touchLeft = false, touchRight = false;
-cv.addEventListener('touchstart', e => {
-  e.preventDefault();
-  const rect = cv.getBoundingClientRect();
-  Array.from(e.touches).forEach(t => {
-    const x = (t.clientX-rect.left)*(W/rect.width);
-    if(x < W/2) touchLeft=true; else touchRight=true;
-  });
-}, {passive:false});
-cv.addEventListener('touchend', e => {
-  e.preventDefault();
-  touchLeft=false; touchRight=false;
-}, {passive:false});
+function setupJoy(){
+  function bind(id,isLeft){
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('touchstart',e=>{e.preventDefault();if(isLeft)touchLeft=true;else touchRight=true;el.classList.add('active');},{passive:false});
+    el.addEventListener('touchend',e=>{e.preventDefault();if(isLeft)touchLeft=false;else touchRight=false;el.classList.remove('active');},{passive:false});
+    el.addEventListener('mousedown',()=>{if(isLeft)touchLeft=true;else touchRight=true;el.classList.add('active');});
+  }
+  bind('joy-left',true); bind('joy-right',false);
+  document.addEventListener('mouseup',()=>{touchLeft=false;touchRight=false;document.querySelectorAll('.jbtn').forEach(b=>b.classList.remove('active'));});
+}
+setupJoy();
 
 function getLeft(){ return keys['ArrowLeft']||keys['a']||keys['A']||touchLeft; }
 function getRight(){ return keys['ArrowRight']||keys['d']||keys['D']||touchRight; }
@@ -194,8 +198,8 @@ function spawnParticles(x, worldY, color){
 
 function update(){
   // Input
-  if(getLeft()){ player.vx = Math.max(player.vx-0.5, -5); }
-  else if(getRight()){ player.vx = Math.min(player.vx+0.5, 5); }
+  if(getLeft()){ player.vx = Math.max(player.vx-0.7, -5); }
+  else if(getRight()){ player.vx = Math.min(player.vx+0.7, 5); }
   else { player.vx *= 0.82; }
 
   player.vy += GRAVITY;
