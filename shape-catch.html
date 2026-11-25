@@ -70,7 +70,7 @@ function newGame(){
   resize();
   bucket={x:W/2,y:H*0.85,w:60,h:16};
   shapes=[]; particles=[];
-  score=0; lives=3; caught=0; speed=2;
+  score=0; lives=5; caught=0; speed=2;
   targetShape=SHAPES[Math.floor(Math.random()*SHAPES.length)];
   best=+(localStorage.getItem('shapecatch_best')||0);
   gameState='playing';
@@ -158,7 +158,7 @@ function loop(){
     // Catch check
     shapes.forEach((s,i)=>{
       const bTop=bucket.y-bucket.h/2;
-      if(s.y+s.size>=bTop&&s.y-s.size<bTop+bucket.h&&Math.abs(s.x-bucket.x)<bucket.w/2+s.size*0.5){
+      if(s.y+s.size>=bTop&&s.y-s.size<bTop+bucket.h&&Math.abs(s.x-bucket.x)<bucket.w/2){
         if(s.type===targetShape){
           score++;caught++;
           spawnParticles(s.x,bTop,s.color,10);
@@ -219,7 +219,7 @@ function loop(){
   ctx.shadowBlur=0;
 
   // Lives
-  for(let i=0;i<3;i++){
+  for(let i=0;i<5;i++){
     ctx.fillStyle=i<lives?'#00e5ff':'rgba(255,255,255,.1)';
     ctx.beginPath();ctx.arc(16+i*22,H-14,6,0,Math.PI*2);ctx.fill();
   }
