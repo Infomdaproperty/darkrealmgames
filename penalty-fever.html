@@ -98,7 +98,7 @@ function kickBall(){
   power=0; charging=false;
   gameState='flying';
   // GK intelligence: level 1=10% track, level5=70% track
-  const trackChance=0.1+(level-1)*0.14;
+  const trackChance=0.45+(level-1)*0.1;
   const ballGoesRight=aimX>W/2;
   const tracks=Math.random()<trackChance;
   gk.jumpDir=tracks?(ballGoesRight?1:-1):(Math.random()<0.5?-1:1);

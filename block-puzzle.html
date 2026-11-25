@@ -55,12 +55,12 @@
   .color-5 { background: linear-gradient(145deg,#ea80fc 0%,#aa00ff 50%,#5c0099 100%); box-shadow: inset 0 3px 0 rgba(240,200,255,.6), inset 0 -3px 0 rgba(0,0,0,.45), 0 2px 8px rgba(170,0,255,.5); }
   .color-6 { background: linear-gradient(145deg,#18ffff 0%,#00bcd4 50%,#006978 100%); box-shadow: inset 0 3px 0 rgba(200,255,255,.65), inset 0 -3px 0 rgba(0,0,0,.45), 0 2px 8px rgba(0,188,212,.5); }
   #tray { display: flex; gap: 10px; justify-content: center; }
-  .piece-slot { flex: 1; background: var(--panel); border: 2px solid var(--border); border-radius: 14px; display: flex; align-items: center; justify-content: center; padding: 10px 6px; min-height: 90px; cursor: grab; transition: border-color .15s, transform .15s, box-shadow .15s; }
+  .piece-slot { flex: 1; background: var(--panel); border: 2px solid var(--border); border-radius: 14px; display: flex; align-items: center; justify-content: center; padding: 10px 6px; min-height: 110px; cursor: grab; transition: border-color .15s, transform .15s, box-shadow .15s; }
   .piece-slot:hover:not(.empty) { border-color: #4a9eff; box-shadow: 0 0 16px var(--glow); transform: translateY(-2px); }
   .piece-slot.empty { opacity: 0.4; cursor: default; }
   .piece-slot.dragging-source { opacity: 0.4; transform: scale(0.95); }
   .piece-mini { display: grid; gap: 2px; }
-  .piece-mini .mc { width: 10px; height: 10px; border-radius: 2px; }
+  .piece-mini .mc { width: 14px; height: 14px; border-radius: 2px; }
   #controls { display: flex; gap: 10px; }
   .btn { flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s, transform .1s; }
   .btn:hover { background: var(--panel2); }
