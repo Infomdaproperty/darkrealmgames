@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -104,8 +104,8 @@ function resize(){
 // === STATE ===
 let player, platforms, stars, score, bestScore, cameraY, running, rafId, particles;
 
-const GRAVITY = 0.42;
-const JUMP = -12.5;
+const GRAVITY = 0.28;
+const JUMP = -9.0;
 const PLAYER_W = 22, PLAYER_H = 18;
 const PLAT_H = 10;
 
@@ -150,7 +150,7 @@ function startGame(){
 
 function addPlatform(minWorldY){
   const y = minWorldY + Math.random()*45;
-  const w = 50 + Math.random()*45;
+  const w = 65 + Math.random()*40;
   const x = Math.random()*(W-w);
   const roll = Math.random();
   let type = 'normal';
@@ -198,14 +198,11 @@ function spawnParticles(x, worldY, color){
 
 function update(){
   // Input
-  if(getLeft()){ player.vx = Math.max(player.vx-0.5, -3.5); }
-  else if(getRight()){ player.vx = Math.min(player.vx+0.5, 3.5); }
+  if(getLeft()){ player.vx = Math.max(player.vx-0.65, -4.5); }
+  else if(getRight()){ player.vx = Math.min(player.vx+0.65, 4.5); }
   else { player.vx *= 0.75; }
 
   player.vy += GRAVITY;
-  player.worldY += player.vy * .5; // world coords go DOWN when vy>0, so we subtract
-  // Actually let's think: worldY increases going UP
-  // vy < 0 = moving up, so worldY += -vy
   player.worldY -= player.vy; // worldY goes up when vy is negative
 
   player.x += player.vx;

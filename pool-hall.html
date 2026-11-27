@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -90,7 +90,7 @@ canvas{display:block;cursor:crosshair;touch-action:none}
 <div id="canvas-wrap">
   <canvas id="cv"></canvas>
 </div>
-<div class="hint">Click and drag from the cue ball to aim. Release to shoot.</div>
+<div class="hint">Click the cue ball, drag toward your target, then release to shoot.</div>
 <div id="overlay">
   <div class="ov-box">
     <h2 id="ov-title">Cleared!</h2>
@@ -104,7 +104,7 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 
 let W, H, BW, BH, PW, R, POCKET_R;
-let balls, aiming, aimStart, aimEnd, shooting, shots, bestShots;
+let balls, aiming, aimStart, aimEnd, shooting, shots, bestShots, raf;
 
 const FRICTION = 0.985;
 const RESTITUTION = 0.92;
@@ -158,13 +158,15 @@ function cueBall(){
 }
 
 function startGame(){
+  cancelAnimationFrame(raf);
   resize();
   balls = rack();
   aiming = false; aimStart = null; aimEnd = null; shooting = false;
   shots = 0;
+  bestShots = +(localStorage.getItem('poolhall_best') || 0) || null;
   document.getElementById('overlay').classList.remove('show');
   updateUI();
-  requestAnimationFrame(loop);
+  raf = requestAnimationFrame(loop);
 }
 
 function updateUI(){
@@ -244,7 +246,7 @@ function update(){
     // Check win
     const left = balls.filter(b => !b.pocketed && b.id >= 0).length;
     if(left === 0){
-      if(!bestShots || shots < bestShots) bestShots = shots;
+      if(!bestShots || shots < bestShots){ bestShots = shots; localStorage.setItem('poolhall_best', bestShots); }
       document.getElementById('ov-title').textContent = 'Cleared!';
       document.getElementById('ov-msg').textContent = `All balls sunk in ${shots} shots.`;
       document.getElementById('overlay').classList.add('show');
@@ -280,8 +282,8 @@ function releaseAim(){
   aiming = false;
   const cb = cueBall();
   if(!cb) return;
-  const dx = aimStart.x - aimEnd.x;
-  const dy = aimStart.y - aimEnd.y;
+  const dx = aimEnd.x - aimStart.x;
+  const dy = aimEnd.y - aimStart.y;
   const power = Math.min(Math.hypot(dx,dy)*SHOT_MULT, MAX_SPEED);
   if(power < .1){ return; }
   const len = Math.hypot(dx,dy);
@@ -420,7 +422,7 @@ function shadeColor(hex,f){
 function loop(){
   update();
   drawScene();
-  requestAnimationFrame(loop);
+  raf = requestAnimationFrame(loop);
 }
 
 cv.addEventListener('mousedown', e => startAim(getCanvasPos(e)));
