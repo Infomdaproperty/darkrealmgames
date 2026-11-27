@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -64,7 +64,7 @@ function resize(){
 }
 
 function makeStal(x, fromTop){
-  const len = 25 + Math.random() * 60;
+  const len = 18 + Math.random() * 35;
   const hue = 180 + Math.random() * 60;
   return {x, len, fromTop, hue};
 }
@@ -85,7 +85,7 @@ function newGame(){
   gameState = 'playing';
 
   // Pre-spawn some obstacles
-  for(let x = W + 60; x < W + 600; x += 90 + Math.random()*60){
+  for(let x = W + 60; x < W + 800; x += 160 + Math.random()*80){
     stalactites.push(makeStal(x, true));
     stalagmites.push(makeStal(x + 30 + Math.random()*30, false));
   }
@@ -137,7 +137,7 @@ function loop(){
     // Spawn new
     const lastStal = stalactites.reduce((m,s)=>s.x>m?s.x:m, 0);
     if(lastStal < W + 200){
-      const nx = lastStal + 90 + Math.random() * 80;
+      const nx = lastStal + 160 + Math.random() * 80;
       stalactites.push(makeStal(nx, true));
       stalagmites.push(makeStal(nx + 20 + Math.random()*40, false));
       if(Math.random() < 0.6) coins.push(makeCoin(nx + 50, H * (0.2 + Math.random()*0.6)));

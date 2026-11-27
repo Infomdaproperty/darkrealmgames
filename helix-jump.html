@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -108,7 +108,7 @@ function loop(){
 
   // Fall
   ball.vy += 0.3;
-  ball.vy = Math.min(ball.vy, FALL_SPEED*2);
+  ball.vy = Math.min(ball.vy, FALL_SPEED*1.4);
   ball.y += ball.vy;
   ball.colorTimer++;
   if(ball.colorTimer>8){ball.colorTimer=0;ball.hue=(ball.hue+30)%360;}
@@ -169,10 +169,9 @@ function loop(){
     }
   });
 
-  // Camera follows ball down
-  if(ball.y > H*0.6){
-    cameraY += ball.vy;
-  }
+  // Camera follows ball down - smooth lerp keeping ball visible
+  const targetCam = ball.y - H * 0.38;
+  if(targetCam > cameraY) cameraY = cameraY + (targetCam - cameraY) * 0.2 + 0.5;
 
   // Add new platforms as we scroll
   while(platforms.length<NUM_PLATFORMS+score+3){

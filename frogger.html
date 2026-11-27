@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -84,8 +84,8 @@ function makeLanes(){
     const row=ROWS-8-i; // rows 5,4,3,2,1 from top
     const spd=speeds[i]*CS*0.012*(0.8+Math.random()*0.4);
     const objs=[];
-    const logW=CS*(2+Math.floor(Math.random()*2));
-    for(let j=0;j<3;j++) objs.push({x:j*(W/3+CS)+Math.random()*CS, y:row*CS+2, w:logW, h:CS-4, col:LOG_COL, type:'log'});
+    const logW=CS*(3+Math.floor(Math.random()*2));
+    for(let j=0;j<4;j++) objs.push({x:j*(W/4)+Math.random()*CS*0.3, y:row*CS+2, w:logW, h:CS-4, col:LOG_COL, type:'log'});
     lanes.push({row, dir:dirs[i], speed:spd, objs, type:'river'});
   }
   // Safe row
@@ -118,7 +118,7 @@ function newGame(){
   resize();
   lanes=makeLanes(); pads=makePads(); particles=[];
   score=0; lives=3; timeLeft=30;
-  frog={col:Math.floor(COLS/2), row:ROWS-1, riding:null, dead:false};
+  frog={col:Math.floor(COLS/2), row:ROWS-1, riding:null, dead:false, hopTimer:0};
   gameState='playing';
   clearInterval(timerId);
   timerId=setInterval(()=>{ if(gameState==='playing'){ timeLeft--; if(timeLeft<=0) die(); updateHUD(); } },1000);
@@ -137,14 +137,14 @@ function hop(dx,dy){
   if(gameState!=='playing'||frog.dead) return;
   const nr=frog.row+dy, nc=frog.col+dx;
   if(nr<0||nr>=ROWS||nc<0||nc>=COLS) return;
-  frog.row=nr; frog.col=nc; frog.riding=null;
+  frog.row=nr; frog.col=nc; frog.riding=null; frog.hopTimer=4;
   spawnParticles(frog.col*CS+CS/2, frog.row*CS+CS/2,'#44ff44');
 
   // Reached top row
   if(frog.row===0){
     const pad=pads.find(p=>p.col===frog.col&&!p.filled);
     if(pad){ pad.filled=true; score+=100; timeLeft=30; updateHUD();
-      frog={col:Math.floor(COLS/2),row:ROWS-1,riding:null,dead:false};
+      frog={col:Math.floor(COLS/2),row:ROWS-1,riding:null,dead:false,hopTimer:0};
       if(pads.every(p=>p.filled)){
         pads=makePads(); score+=500; updateHUD();
       }
@@ -168,7 +168,7 @@ function die(){
       document.getElementById('overlay').classList.add('show');
     },500);
   } else {
-    setTimeout(()=>{ frog={col:Math.floor(COLS/2),row:ROWS-1,riding:null,dead:false}; timeLeft=30; updateHUD(); },800);
+    setTimeout(()=>{ frog={col:Math.floor(COLS/2),row:ROWS-1,riding:null,dead:false,hopTimer:0}; timeLeft=30; updateHUD(); },800);
   }
 }
 
@@ -176,6 +176,7 @@ function loop(){
   raf=requestAnimationFrame(loop);
 
   if(gameState==='playing'&&!frog.dead){
+    if(frog.hopTimer>0) frog.hopTimer--;
     // Move lane objects
     lanes.forEach(lane=>{
       lane.objs.forEach(o=>{
@@ -197,8 +198,7 @@ function loop(){
             if(frog.riding!==o){frog.riding=o;}
           }
         });
-        if(!riding&&lane.type==='river') {
-          // Check if truly in river row (not just passing through)
+        if(!riding&&lane.type==='river'&&frog.hopTimer===0) {
           die();
         }
       }

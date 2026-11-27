@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -81,7 +81,7 @@ function newGame(){
   best = +(localStorage.getItem('spinjump_best') || 0);
   gameState = 'spinning';
   orbitAngle = 0;
-  orbitSpeed = 0.055;
+  orbitSpeed = 0.03;
   orbitR = 28;
   flying = false;
   flyVx = 0; flyVy = 0;
@@ -226,6 +226,15 @@ function loop(){
     ctx.fillStyle = pg;
     ctx.fillRect(poleX - 3, poleTop, 6, H - poleTop);
     ctx.restore();
+  }
+
+  // Launch direction indicator
+  if(gameState === 'spinning' && platforms[0]){
+    const pX = W * POLE_X_FRAC + Math.cos(orbitAngle) * orbitR;
+    const pY = (platforms[0].y - CHAR_R) + Math.sin(orbitAngle) * orbitR * 0.5;
+    ctx.save(); ctx.globalAlpha = 0.55; ctx.strokeStyle = '#ffaa44'; ctx.lineWidth = 2; ctx.setLineDash([5,4]);
+    ctx.beginPath(); ctx.moveTo(pX, pY); ctx.lineTo(pX + Math.cos(orbitAngle)*45, pY + Math.sin(orbitAngle)*45); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
   }
 
   // Platforms

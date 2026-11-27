@@ -117,8 +117,8 @@ function loop(){
 
   if(gameState === 'playing'){
     // Rotation from keys
-    if(keyLeft) tunnelRotation -= 0.04;
-    if(keyRight) tunnelRotation += 0.04;
+    if(keyLeft) tunnelRotation += 0.04;
+    if(keyRight) tunnelRotation -= 0.04;
 
     // Advance
     obstacles.forEach(o => o.z -= speed);

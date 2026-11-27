@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -89,7 +89,7 @@ function spawnFruit(){
   const fi = Math.floor(Math.random() * FRUITS.length);
   const f = FRUITS[fi];
   const x = f.r + Math.random() * (W - f.r*2);
-  const vy = -(8 + Math.random() * 5);
+  const vy = -(5 + Math.random() * 3);
   const vx = (Math.random() - 0.5) * 2.5;
   fruits.push({
     x, y: H + f.r,
@@ -153,7 +153,7 @@ function loop(){
   if(gameState === 'playing'){
     // Spawn
     spawnTimer++;
-    const interval = Math.max(28, 55 - score/4);
+    const interval = Math.max(35, 70 - score/4);
     if(spawnTimer >= interval){ spawnFruit(); spawnTimer = 0; }
 
     // Physics

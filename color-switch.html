@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -61,7 +61,7 @@ function resize(){
 function newGame(){
   document.getElementById('overlay').classList.remove('show');
   resize();
-  ball = {y: H / 2, vy: 2.8, colorIdx: 0, r: 12, bouncing: true};
+  ball = {y: H / 2, vy: 2.8, colorIdx: 0, r: 12, bouncing: true, scoreCooldown: 0};
   ring = {angle: 0, speed: 0.018, r: W * 0.3, thickness: 22};
   particles = [];
   score = 0; speed = 0.018;
@@ -80,6 +80,7 @@ function updateHUD(){
 function switchBall(){
   if(gameState !== 'playing') return;
   ball.colorIdx = (ball.colorIdx + 1) % COLS.length;
+  ball.vy = -6;
   spawnParticles(W/2, ball.y, COLS[ball.colorIdx], 5);
 }
 
@@ -108,6 +109,7 @@ function loop(){
 
     // Ring rotation
     ring.angle += ring.speed;
+    if(ball.scoreCooldown > 0) ball.scoreCooldown--;
 
     // Check if ball passes through ring
     const cx = W/2, cy = H/2;
@@ -138,9 +140,13 @@ function loop(){
           document.getElementById('overlay').classList.add('show');
         }, 700);
       } else {
-        // Passed through, score
-        if(ball.vy > 0 && ball.y > cy){
-          // just check we don't double-score; handled by passing through
+        // Passed through matching colour - score once per pass
+        if(ball.scoreCooldown <= 0){
+          score++;
+          ball.scoreCooldown = 25;
+          ring.speed = Math.min(0.06, 0.018 + score * 0.0004);
+          updateHUD();
+          spawnParticles(W/2, ball.y, COLS[ball.colorIdx], 8);
         }
       }
     }
@@ -196,12 +202,7 @@ function loop(){
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillText(score, W/2, 14);
 
-  // Tick score
-  if(gameState === 'playing' && Math.random() < 0.01){
-    score++;
-    ring.speed = Math.min(0.06, 0.018 + score * 0.0004);
-    updateHUD();
-  }
+
 }
 
 document.addEventListener('keydown', e => { if(e.code === 'Space'){ e.preventDefault(); switchBall(); } });
