@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -122,6 +122,18 @@ function addRow(){
   if(grid.length>12){gameState='over';showEnd();}
 }
 
+function findPlacementCell(bx,by){
+  let best=null,bd=999;
+  for(let r=0;r<grid.length;r++){
+    for(let c=0;c<COLS;c++){
+      if(grid[r][c].alive)continue;
+      const cx=cellX(c,r),cy=cellY(r);
+      const d=Math.hypot(bx-cx,by-cy);
+      if(d<bd&&d<BR*3.5){bd=d;best={r,c};}
+    }
+  }
+  return best;
+}
 function nearestCell(bx,by){
   let best=null,bd=999;
   for(let r=0;r<grid.length;r++){
@@ -182,9 +194,8 @@ function loop(){
     if(bullet.x<bullet.r){bullet.x=bullet.r;bullet.vx*=-1;}
     if(bullet.x>W-bullet.r){bullet.x=W-bullet.r;bullet.vx*=-1;}
     if(bullet.y<bullet.r+GRID_Y){
-      // Snap to grid
-      const cell=nearestCell(bullet.x,bullet.y);
-      if(cell){grid[cell.r][cell.c].color=bullet.color;popBubbles(cell.r,cell.c);}
+      const cell=findPlacementCell(bullet.x,bullet.y);
+      if(cell){grid[cell.r][cell.c]={color:bullet.color,alive:true};popBubbles(cell.r,cell.c);}
       bullet=null;
     }
     // Hit existing bubble
@@ -194,8 +205,8 @@ function loop(){
           if(!grid[r][c].alive)continue;
           const cx=cellX(c,r),cy=cellY(r);
           if(Math.hypot(bullet.x-cx,bullet.y-cy)<bullet.r+BR-2){
-            grid[r][c].color=bullet.color;
-            popBubbles(r,c);
+            const pc=findPlacementCell(bullet.x,bullet.y);
+            if(pc){grid[pc.r][pc.c]={color:bullet.color,alive:true};popBubbles(pc.r,pc.c);}
             bullet=null;
           }
         }
@@ -235,13 +246,12 @@ function loop(){
     ctx.beginPath();ctx.moveTo(LAUNCH_X,LAUNCH_Y);
     ctx.lineTo(LAUNCH_X+Math.cos(aimAngle)*120,LAUNCH_Y+Math.sin(aimAngle)*120);
     ctx.stroke();ctx.setLineDash([]);
-    // Next bubble preview
-    ctx.shadowColor=nextBulletColor;ctx.shadowBlur=12;
+    // Current ball to shoot - show clearly with gradient
+    ctx.shadowColor=nextBulletColor;ctx.shadowBlur=14;
     ctx.beginPath();ctx.arc(LAUNCH_X,LAUNCH_Y,BR,0,Math.PI*2);
-    ctx.fillStyle=nextBulletColor;ctx.fill();ctx.shadowBlur=0;
-    // ''SHOOT'' label
-    ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='bold 10px Orbitron,monospace';
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('SHOOT',LAUNCH_X,LAUNCH_Y);
+    const gb=ctx.createRadialGradient(LAUNCH_X-BR*.3,LAUNCH_Y-BR*.3,1,LAUNCH_X,LAUNCH_Y,BR);
+    gb.addColorStop(0,'rgba(255,255,255,.8)');gb.addColorStop(0.4,nextBulletColor);gb.addColorStop(1,nextBulletColor+'aa');
+    ctx.fillStyle=gb;ctx.fill();ctx.shadowBlur=0;
   }
 
   // Bullet
@@ -287,3 +297,4 @@ newGame();
 </script>
 </body>
 </html>
+

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -56,6 +56,7 @@ function resize(){
   const avail = Math.min(window.innerWidth-20, 320);
   W = avail; H = Math.round(W*1.8);
   cv.width = W; cv.height = H;
+  MOVING_Y = Math.round(H * 0.3);
 }
 
 const HUES = [15,30,45,60,120,180,210,240,270,300,330,0];
@@ -63,21 +64,19 @@ const HUES = [15,30,45,60,120,180,210,240,270,300,330,0];
 let stack, moving, fallingPieces, flashEffects, perfectFlash;
 let score, best, gameState, raf;
 let moveX, moveDir, moveSpeed;
-let cameraY = 0;
+let MOVING_Y = 0;
 
 function newGame(){
   document.getElementById('overlay').classList.remove('show');
   resize();
   score = 0; best = +(localStorage.getItem('towerstack_best')||0);
   gameState = 'playing';
-  cameraY = 0;
   fallingPieces = []; flashEffects = []; perfectFlash = 0;
 
   const baseW = Math.round(W * BASE_W_FRAC);
   const baseX = Math.round((W - baseW) / 2);
-  const baseY = H - BLOCK_H - 20;
 
-  stack = [{x:baseX, y:baseY, w:baseW, hue:HUES[0]}];
+  stack = [{x:baseX, y:MOVING_Y, w:baseW, hue:HUES[0]}];
   startMoving();
   updateHUD();
   cancelAnimationFrame(raf);
@@ -88,7 +87,7 @@ function startMoving(){
   const prev = stack[stack.length-1];
   moveX = 0;
   moveDir = 1;
-  moveSpeed = Math.min(2.5 + score*0.18, 7);
+  moveSpeed = Math.min(2.0 + score*0.1, 5);
 }
 
 function topBlockY(){
@@ -110,7 +109,7 @@ function drop(){
 
   if(overlap<=2){
     // Fell off
-    fallingPieces.push({x:curX,y:topBlockY(),w:curW,vy:0,hue:HUES[score%HUES.length],dir:curX>prevX?1:-1});
+    fallingPieces.push({x:curX,y:MOVING_Y,w:curW,vy:0,hue:HUES[score%HUES.length],dir:curX>prevX?1:-1});
     gameState='dead';
     if(score>best){best=score;localStorage.setItem('towerstack_best',best);}
     setTimeout(()=>{
@@ -126,23 +125,19 @@ function drop(){
   const perfect = Math.abs(curX-prevX)<=2 && Math.abs((curX+curW)-(prevX+prevW))<=2;
 
   if(curX < overlapL){
-    fallingPieces.push({x:curX,y:topBlockY(),w:overlapL-curX,vy:-1,hue:HUES[score%HUES.length],dir:-1});
+    fallingPieces.push({x:curX,y:MOVING_Y,w:overlapL-curX,vy:-1,hue:HUES[score%HUES.length],dir:-1});
   }
   if(curX+curW > overlapR){
-    fallingPieces.push({x:overlapR,y:topBlockY(),w:(curX+curW)-overlapR,vy:-1,hue:HUES[score%HUES.length],dir:1});
+    fallingPieces.push({x:overlapR,y:MOVING_Y,w:(curX+curW)-overlapR,vy:-1,hue:HUES[score%HUES.length],dir:1});
   }
 
   score++;
-  stack.push({x:overlapL, y:topBlockY(), w:overlap, hue:HUES[score%HUES.length]});
+  stack.forEach(b => b.y += BLOCK_H);
+  stack.push({x:overlapL, y:MOVING_Y, w:overlap, hue:HUES[score%HUES.length]});
 
   if(perfect){
     perfectFlash=50;
     flashEffects.push({y:topBlockY(),life:1,text:'PERFECT!'});
-  }
-
-  // Camera scroll
-  if(stack.length > 8){
-    cameraY = Math.max(0, (stack.length-8)*BLOCK_H);
   }
 
   updateHUD();
@@ -231,7 +226,7 @@ function draw(){
 
   // Stack
   stack.forEach((b,i)=>{
-    const dy = b.y - cameraY;
+    const dy = b.y;
     if(dy<-BLOCK_H||dy>H+BLOCK_H) return;
     drawBlock3D(b.x,dy,b.w,b.hue,i);
   });
@@ -239,10 +234,7 @@ function draw(){
   // Moving block
   if(gameState==='playing'){
     const prev=stack[stack.length-1];
-    const dy=topBlockY()-cameraY;
-    if(dy>-BLOCK_H&&dy<H+BLOCK_H){
-      drawBlock3D(moveX,dy,prev.w,HUES[score%HUES.length],stack.length);
-    }
+    drawBlock3D(moveX,MOVING_Y,prev.w,HUES[score%HUES.length],stack.length);
   }
 
   // Falling pieces
@@ -266,7 +258,7 @@ function draw(){
     ctx.shadowColor='#ffdd44';ctx.shadowBlur=16;
     ctx.font=`bold ${Math.round(W*0.08)}px 'Orbitron',monospace`;
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(f.text,W/2,f.y-cameraY-20);
+    ctx.fillText(f.text,W/2,f.y-20);
     ctx.shadowBlur=0;
   });
   ctx.globalAlpha=1;
@@ -280,3 +272,4 @@ newGame();
 </script>
 </body>
 </html>
+
